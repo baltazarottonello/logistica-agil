@@ -1,0 +1,22 @@
+import express from "express";
+import {
+  getHojasRuta,
+  createHojaRuta,
+  getChoferesActivos,
+  getVehiculosActivos,
+  updateHojaRuta,
+  deleteHojaRuta,
+} from "../controllers/hojaRutacontroller.js";
+
+const router = express.Router();
+
+// Nuevas rutas para los selectores
+router.get("/choferes", getChoferesActivos);
+router.get("/vehiculos", getVehiculosActivos);
+
+router.get("/", getHojasRuta);
+router.post("/", createHojaRuta);
+router.put("/:id", updateHojaRuta);
+router.delete("/:id", deleteHojaRuta);
+
+export default router;
