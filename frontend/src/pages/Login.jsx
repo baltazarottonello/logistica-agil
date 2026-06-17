@@ -1,3 +1,4 @@
+// pages/Login.jsx
 import { useState } from "react";
 
 export default function Login({ onLoginSuccess }) {
@@ -5,27 +6,29 @@ export default function Login({ onLoginSuccess }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
 
-    // SIMULACIÓN DE LOGINS SÚPER SIMPLE:
-    if (email === "admin@empresa.com" && password === "1234") {
-      onLoginSuccess({
-        nombre: "Carlos Gómez",
-        rol: "Administrador",
-        id_rol: 1,
+    try {
+      // Petición real al backend sin JWT y con texto plano
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
-    } else if (email === "operador@empresa.com" && password === "1234") {
-      onLoginSuccess({
-        nombre: "Martín Silva",
-        rol: "Operador de Carga",
-        id_rol: 2,
-      });
-    } else {
-      setError(
-        "Usuario o contraseña incorrectos. Pistas: admin@empresa.com o operador@empresa.com (clave: 1234)"
-      );
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Error al iniciar sesión.");
+
+      // Guardamos el objeto del usuario en el localStorage para persistir sesión
+      localStorage.setItem("usuario", JSON.stringify(data));
+
+      // Pasamos los datos del usuario de la DB al estado global de la App
+      onLoginSuccess(data);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -34,10 +37,10 @@ export default function Login({ onLoginSuccess }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-200">
         <div className="text-center mb-6">
           <h2 className="text-3xl font-extrabold text-slate-900">
-            Logística <span className="text-blue-600">Ágil</span>
+            Logística <span className="text-blue-600">Ázil</span>
           </h2>
           <p className="text-sm text-slate-500 mt-2">
-            Simulador de Inicio de Sesión
+            Inicio de Sesión en Base de Datos
           </p>
         </div>
 
@@ -50,21 +53,21 @@ export default function Login({ onLoginSuccess }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-              Email (admin@empresa.com / operador@empresa.com)
+              Email Corporativo
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="ejemplo@empresa.com"
+              placeholder="ejemplo@logistica.com"
               className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-600"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase text-slate-700 mb-1">
-              Contraseña (1234)
+              Contraseña
             </label>
             <input
               type="password"
