@@ -11,7 +11,7 @@ export const getPedidos = async (req, res) => {
         cd.razon_social AS destinatario,
         ep.nombre AS estado,
         GROUP_CONCAT(cp.nombre SEPARATOR ', ') AS categorias,
-        GROUP_CONCAT(cp.id_categoria) AS ids_categorias
+        MAX(cp.requiere_frio) AS requiere_frio -- <-- Si alguna categoría da 1, el pedido requiere frío (1)
       FROM pedidos p
       JOIN clientes cr ON p.id_cliente_remitente = cr.id_cliente
       JOIN clientes cd ON p.id_cliente_destinatario = cd.id_cliente
@@ -20,7 +20,7 @@ export const getPedidos = async (req, res) => {
       LEFT JOIN categorias_producto cp ON pc.id_categoria = cp.id_categoria
       GROUP BY p.id_pedido
       ORDER BY p.fecha_registro DESC;
-    `;
+`;
     const [rows] = await db.query(query);
     res.json(rows);
   } catch (error) {
@@ -174,5 +174,120 @@ export const deletePedido = async (req, res) => {
     res.json({ message: "Pedido eliminado permanentemente." });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPedidosDisponibles = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        p.id_pedido,
+        p.direccion_entrega,
+        p.id_estado,
+        p.peso_kg, -- <-- ¡AGREGAR ESTA COLUMNA AQUÍ!
+        c.razon_social AS cliente_nombre,
+        MAX(IF(cp.requiere_frio = 1, 1, 0)) AS requiere_frio
+      FROM pedidos p
+      JOIN clientes c ON p.id_cliente_destinatario = c.id_cliente
+      LEFT JOIN pedido_categoria pc ON p.id_pedido = pc.id_pedido
+      LEFT JOIN categorias_producto cp ON pc.id_categoria = cp.id_categoria
+      WHERE p.id_estado = 1
+      GROUP BY p.id_pedido
+      ORDER BY p.id_pedido ASC;
+    `;
+
+    const [rows] = await db.query(query);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateEstadoPedido = async (req, res) => {
+  const { id } = req.params; // id_pedido
+  const { id_estado, observaciones, recibido_por } = req.body;
+
+  if (!id_estado) {
+    return res
+      .status(400)
+      .json({ error: "El campo id_estado es obligatorio." });
+  }
+
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // 1. Actualizar el estado en la tabla 'pedidos'
+    const queryPedido = `
+      UPDATE pedidos 
+      SET id_estado = ?
+      WHERE id_pedido = ?;
+    `;
+    const [resultPedido] = await connection.query(queryPedido, [id_estado, id]);
+
+    if (resultPedido.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Pedido no encontrado." });
+    }
+
+    // =====================================================
+    // MAPEO DE ESTADOS Y SIMULACIÓN DE FIRMA/RECIBO
+    // =====================================================
+    let idEstadoEntrega = 1; // 1 = Pendiente por defecto
+    let reciboEmitido = 0; // FALSE por defecto
+    let firmaDigital = null; // NULL por defecto
+
+    if (Number(id_estado) === 3) {
+      idEstadoEntrega = 2; // Entregado
+      reciboEmitido = 1; // 🚨 TRUE: Se emite el recibo automáticamente al entregar
+
+      // 🚨 SIMULACIÓN DE FIRMA DIGITAL (BLOB):
+      // Creamos un Buffer binario simulando los datos de una firma digitalizada
+      firmaDigital = Buffer.from(
+        `Firma_Digitalizada_De_${
+          recibido_por || "Destinatario"
+        }_IdPedido_${id}`,
+        "utf-8"
+      );
+    } else if (Number(id_estado) === 4) {
+      idEstadoEntrega = 3; // Rechazado
+    } else if (Number(id_estado) === 1) {
+      idEstadoEntrega = 4; // Ausente
+    }
+
+    // 3. Insertar o actualizar el registro en la tabla 'entregas'
+    // Incluimos las columnas 'recibo_emitido' y 'firma_digital'
+    const queryEntrega = `
+      INSERT INTO entregas (id_pedido, id_estado_entrega, fecha_entrega, recibido_por, observaciones, recibo_emitido, firma_digital)
+      VALUES (?, ?, NOW(), ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE 
+        id_estado_entrega = VALUES(id_estado_entrega),
+        fecha_entrega = NOW(),
+        recibido_por = VALUES(recibido_por), 
+        observaciones = VALUES(observaciones),
+        recibo_emitido = VALUES(recibo_emitido),
+        firma_digital = VALUES(firma_digital);
+    `;
+
+    // Pasamos las variables al array de parámetros
+    await connection.query(queryEntrega, [
+      id,
+      idEstadoEntrega,
+      recibido_por || "N/A",
+      observaciones || "Registrado por el Chofer",
+      reciboEmitido,
+      firmaDigital, // El driver de MySQL (mysql2) inyecta el Buffer directamente como BLOB
+    ]);
+
+    await connection.commit();
+    res.json({
+      message: "Pedido y entrega (con recibo y firma) registrados con éxito.",
+    });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    connection.release();
   }
 };
