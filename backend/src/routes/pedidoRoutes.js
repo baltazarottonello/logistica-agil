@@ -1,4 +1,3 @@
-// routes/pedidoRoutes.js
 import express from "express";
 import {
   getPedidos,
@@ -6,17 +5,21 @@ import {
   createPedido,
   updatePedido,
   deletePedido,
+  getPedidosDisponibles,
+  updateEstadoPedido,
 } from "../controllers/pedidoController.js";
 
 const router = express.Router();
 
-// Rutas de lectura (Accesibles por cualquier rol logueado)
+// 1. RUTAS ESPECÍFICAS / ESTÁTICAS (Siempre ARRIBA)
 router.get("/", getPedidos);
-router.get("/dependencias", getFormDependencias); // Para traer clientes y estados al formulario
+router.get("/dependencias", getFormDependencias);
+router.get("/disponibles", getPedidosDisponibles);
 
-// Rutas protegidas (Solo Administrador)
+// 2. RUTAS DINÁMICAS O CON PARÁMETROS (Siempre ABAJO)
 router.post("/", createPedido);
 router.put("/:id", updatePedido);
 router.delete("/:id", deletePedido);
+router.patch("/:id/estado", updateEstadoPedido);
 
 export default router;
