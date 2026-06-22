@@ -179,27 +179,31 @@ export const deletePedido = async (req, res) => {
 
 export const getPedidosDisponibles = async (req, res) => {
   try {
+    const { id_hoja_ruta } = req.query;
+
     const query = `
-      SELECT 
-        p.id_pedido,
-        p.direccion_entrega,
-        p.id_estado,
-        p.peso_kg, -- <-- ¡AGREGAR ESTA COLUMNA AQUÍ!
-        c.razon_social AS cliente_nombre,
-        MAX(IF(cp.requiere_frio = 1, 1, 0)) AS requiere_frio
+      SELECT p.id_pedido, p.direccion_entrega, p.peso_kg, p.volumen_m3, p.observaciones
       FROM pedidos p
-      JOIN clientes c ON p.id_cliente_destinatario = c.id_cliente
-      LEFT JOIN pedido_categoria pc ON p.id_pedido = pc.id_pedido
-      LEFT JOIN categorias_producto cp ON pc.id_categoria = cp.id_categoria
-      WHERE p.id_estado = 1
-      GROUP BY p.id_pedido
-      ORDER BY p.id_pedido ASC;
+      WHERE 
+        -- Trae pedidos pendientes que NO estén en ninguna hoja de ruta
+        (p.id_estado = 1 AND p.id_pedido NOT IN (SELECT id_pedido FROM hoja_ruta_pedido))
+        
+        -- O excepcionalmente trae los pedidos que ya están en la hoja que se está editando
+        ${
+          id_hoja_ruta
+            ? "OR p.id_pedido IN (SELECT id_pedido FROM hoja_ruta_pedido WHERE id_hoja_ruta = ?)"
+            : ""
+        }
+      ORDER BY p.id_pedido DESC;
     `;
 
-    const [rows] = await db.query(query);
-    res.json(rows);
+    const params = id_hoja_ruta ? [id_hoja_ruta] : [];
+    const [pedidos] = await db.query(query, params);
+
+    res.json(pedidos);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en getPedidosDisponibles:", error);
+    res.status(500).json({ message: "Error al obtener pedidos disponibles" });
   }
 };
 
