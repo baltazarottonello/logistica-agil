@@ -71,7 +71,8 @@ export default function UsuariosAdmin({ usuario }) {
       apellido: usuario.apellido,
       email: usuario.email,
       password: "---", // Enviamos un valor dummy ya que no editaremos la pass aquí
-      id_rol: usuario.id_rol || "1", // Si tu consulta SQL no trae el id_rol numérico, asignamos uno temporal o el correspondiente
+      id_rol: usuario.id_rol, // Si tu consulta SQL no trae el id_rol numérico, asignamos uno temporal o el correspondiente
+      activo: usuario.activo,
     });
 
     setIsModalOpen(true);
@@ -343,6 +344,26 @@ export default function UsuariosAdmin({ usuario }) {
                   ))}
                 </select>
               </div>
+              {editingId && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="activo"
+                    id="activo"
+                    checked={!!formData.activo}
+                    onChange={(e) =>
+                      setFormData({ ...formData, activo: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-blue-600"
+                  />
+                  <label
+                    htmlFor="activo"
+                    className="text-xs font-bold text-slate-700"
+                  >
+                    Usuario Activo
+                  </label>
+                </div>
+              )}
               <div className="flex space-x-3 pt-2 border-t border-slate-100">
                 <button
                   type="button"

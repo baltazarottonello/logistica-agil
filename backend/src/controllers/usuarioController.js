@@ -4,15 +4,16 @@ import db from "../config/db.js";
 export const getUsuarios = async (req, res) => {
   try {
     const query = `
-      SELECT 
-        u.id_usuario, u.nombre, u.apellido, u.email, u.activo, u.fecha_creacion,
-        GROUP_CONCAT(r.nombre SEPARATOR ', ') AS roles
-      FROM usuarios u
-      LEFT JOIN usuario_rol ur ON u.id_usuario = ur.id_usuario
-      LEFT JOIN roles r ON ur.id_rol = r.id_rol
-      GROUP BY u.id_usuario
-      ORDER BY u.fecha_creacion DESC;
-    `;
+        SELECT 
+          u.id_usuario, u.nombre, u.apellido, u.email, u.activo, u.fecha_creacion,
+          GROUP_CONCAT(r.nombre SEPARATOR ', ') AS roles,
+          MIN(ur.id_rol) AS id_rol
+        FROM usuarios u
+        LEFT JOIN usuario_rol ur ON u.id_usuario = ur.id_usuario
+        LEFT JOIN roles r ON ur.id_rol = r.id_rol
+        GROUP BY u.id_usuario
+        ORDER BY u.fecha_creacion DESC;
+      `;
     const [rows] = await db.query(query);
     res.json(rows);
   } catch (error) {
