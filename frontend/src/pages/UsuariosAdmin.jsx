@@ -38,11 +38,11 @@ export default function UsuariosAdmin({ usuario }) {
 
   const abrirModalCrear = async () => {
     if (!esAdmin) {
-      Swal.fire({ 
-        title: 'Acción restringida', 
-        text: 'No tienes privilegios suficientes para dar de alta colaboradores.', 
-        icon: 'error', 
-        confirmButtonColor: '#3b82f6' 
+      Swal.fire({
+        title: "Acción restringida",
+        text: "No tienes privilegios suficientes para dar de alta colaboradores.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
       });
       return;
     }
@@ -69,11 +69,11 @@ export default function UsuariosAdmin({ usuario }) {
 
   const abrirModalEditar = async (usuario) => {
     if (!esAdmin) {
-      Swal.fire({ 
-        title: 'Acción restringida', 
-        text: 'No tienes privilegios para modificar fichas de personal.', 
-        icon: 'error', 
-        confirmButtonColor: '#3b82f6' 
+      Swal.fire({
+        title: "Acción restringida",
+        text: "No tienes privilegios para modificar fichas de personal.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
       });
       return;
     }
@@ -85,11 +85,14 @@ export default function UsuariosAdmin({ usuario }) {
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       email: usuario.email,
-      password: "---", // Enviamos un valor dummy ya que no editaremos la pass aquí
+      password: "---",
       id_rol: usuario.id_rol,
       activo: usuario.activo,
+      // Mapeo de los campos nuevos
+      dni: usuario.dni || "",
+      licencia_conducir: usuario.licencia_conducir || "",
+      telefono: usuario.telefono || "",
     });
-
     setIsModalOpen(true);
 
     // Cargamos los roles para el select
@@ -109,8 +112,24 @@ export default function UsuariosAdmin({ usuario }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!esAdmin) {
-      Swal.fire({ title: 'Error', text: 'Acción denegada por el sistema.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Error",
+        text: "Acción denegada por el sistema.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
+    }
+
+    const datosAEnviar = { ...formData };
+
+    // Si el rol NO es chofer (suponiendo que 3 es el id de chofer)
+    // eliminamos los campos específicos de chofer para que el backend
+    // no los procese erróneamente.
+    if (parseInt(datosAEnviar.id_rol) !== 3) {
+      delete datosAEnviar.dni;
+      delete datosAEnviar.licencia_conducir;
+      delete datosAEnviar.telefono;
     }
 
     const esEdicion = editingId !== null;
@@ -119,16 +138,19 @@ export default function UsuariosAdmin({ usuario }) {
       : `${API_URL}/api/usuarios`;
     const metodo = esEdicion ? "PUT" : "POST";
 
+    console.log(datosAEnviar);
+
     fetch(url, {
       method: metodo,
       headers: {
         "Content-Type": "application/json",
         "x-id-rol": usuario?.id_rol, // Cabecera de seguridad para Express
       },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(datosAEnviar),
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Error al procesar la actualización del usuario.");
+        if (!res.ok)
+          throw new Error("Error al procesar la actualización del usuario.");
         return res.json();
       })
       .then(() => {
@@ -139,57 +161,82 @@ export default function UsuariosAdmin({ usuario }) {
           apellido: "",
           email: "",
           password: "",
+          dni: "", // Nuevo
+          licencia_conducir: "", // Nuevo
+          telefono: "",
           id_rol: "",
         });
 
         Swal.fire({
-          title: esEdicion ? '¡Credenciales Actualizadas!' : '¡Colaborador Registrado!',
-          text: esEdicion ? 'Los cambios en los permisos fueron guardados.' : 'El usuario ya puede iniciar sesión en la plataforma.',
-          icon: 'success',
-          confirmButtonColor: '#3b82f6'
+          title: esEdicion
+            ? "¡Credenciales Actualizadas!"
+            : "¡Colaborador Registrado!",
+          text: esEdicion
+            ? "Los cambios en los permisos fueron guardados."
+            : "El usuario ya puede iniciar sesión en la plataforma.",
+          icon: "success",
+          confirmButtonColor: "#3b82f6",
         });
 
         cargarDatos(); // Recargar la tabla
       })
       .catch((err) => {
-        Swal.fire({ title: 'Error de Guardado', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+        Swal.fire({
+          title: "Error de Guardado",
+          text: err.message,
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
       });
   };
 
   const handleBorrar = (id) => {
     if (!esAdmin) {
-      Swal.fire({ title: 'Error', text: 'Solo los administradores pueden revocar accesos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Error",
+        text: "Solo los administradores pueden revocar accesos.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
 
     Swal.fire({
-      title: '¿Revocar acceso de usuario?',
-      text: 'Esta acción eliminará de forma permanente el usuario seleccionado. No podrá volver a ingresar al sistema.',
-      icon: 'warning',
+      title: "¿Revocar acceso de usuario?",
+      text: "Esta acción eliminará de forma permanente el usuario seleccionado. No podrá volver a ingresar al sistema.",
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sí, eliminar acceso',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, eliminar acceso",
+      cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
         fetch(`${API_URL}/api/usuarios/${id}`, {
           method: "DELETE",
         })
           .then((res) => {
-            if (!res.ok) throw new Error("No tienes permisos suficientes o el operador no existe.");
-            
+            if (!res.ok)
+              throw new Error(
+                "No tienes permisos suficientes o el operador no existe."
+              );
+
             Swal.fire({
-              title: '¡Acceso Eliminado!',
-              text: 'Las credenciales fueron revocadas con éxito.',
-              icon: 'success',
-              confirmButtonColor: '#3b82f6'
+              title: "¡Acceso Eliminado!",
+              text: "Las credenciales fueron revocadas con éxito.",
+              icon: "success",
+              confirmButtonColor: "#3b82f6",
             });
 
             cargarDatos(); // Recargar tabla
           })
           .catch((err) => {
-            Swal.fire({ title: 'Error de Eliminación', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+            Swal.fire({
+              title: "Error de Eliminación",
+              text: err.message,
+              icon: "error",
+              confirmButtonColor: "#3b82f6",
+            });
           });
       }
     });
@@ -394,6 +441,56 @@ export default function UsuariosAdmin({ usuario }) {
                   ))}
                 </select>
               </div>
+              {parseInt(formData.id_rol) === 3 && (
+                <div className="grid grid-cols-1 gap-4 p-4 mt-2 bg-slate-50 rounded-xl border border-slate-200 animate-in fade-in zoom-in duration-200">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase">
+                    Datos de Chofer
+                  </h4>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      DNI
+                    </label>
+                    <input
+                      type="text"
+                      name="dni"
+                      value={formData.dni}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Licencia
+                      </label>
+                      <input
+                        type="text"
+                        name="licencia_conducir"
+                        value={formData.licencia_conducir}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Teléfono
+                      </label>
+                      <input
+                        type="text"
+                        name="telefono"
+                        value={formData.telefono}
+                        onChange={handleInputChange}
+                        required
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               {editingId && (
                 <div className="flex items-center gap-2 pt-1">
                   <input

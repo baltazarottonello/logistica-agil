@@ -64,7 +64,7 @@ CREATE TABLE choferes (
     telefono VARCHAR(30),
     email VARCHAR(100),
     activo BOOLEAN DEFAULT TRUE,
-    CONSTRAINT fk_chofer_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario)
+    CONSTRAINT fk_chofer_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE ON UPDATE RESTRICT
 );
 
 -- =====================================================
@@ -198,6 +198,24 @@ CREATE TABLE entregas (
     CONSTRAINT fk_entrega_pedido FOREIGN KEY (id_pedido) REFERENCES pedidos(id_pedido),
     CONSTRAINT fk_entrega_estado FOREIGN KEY (id_estado_entrega) REFERENCES estados_entrega(id_estado_entrega)
 );
+
+-- =====================================================
+-- TRIGGERS
+-- =====================================================
+DELIMITER $$
+
+CREATE DEFINER=`root`@`%` TRIGGER `usuarios_AFTER_UPDATE` 
+AFTER UPDATE ON `usuarios` 
+FOR EACH ROW 
+BEGIN
+    IF OLD.activo <> NEW.activo THEN
+        UPDATE choferes 
+        SET activo = NEW.activo 
+        WHERE id_usuario = NEW.id_usuario;
+    END IF;
+END$$
+
+DELIMITER ;
 
 -- =====================================================
 -- SCRIPT COMPLETO DE CARGA DE DATOS (MÉTODO SEGURO AUTO_INCREMENT)
