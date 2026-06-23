@@ -41,7 +41,7 @@ export const createUsuario = async (req, res) => {
     await connection.beginTransaction(); // Iniciamos la transacción
 
     // En producción, acá encriptarías el password con bcrypt
-    const passwordHash = `$2b$12$Ficticio...${password}`;
+    const passwordHash = `${password}`;
 
     // Insertar en la tabla 'usuarios'
     const queryUsuario = `
