@@ -26,36 +26,13 @@ cd logistica-agil
 git checkout development
 ```
 
-### 2. Crear el archivo de variables de entorno
+### 2. Levantar los servicios
 
 ```bash
-cp .env.example .env
-```
-
-Los valores por defecto funcionan sin modificación. Si querés cambiar la contraseña de MySQL, editá `.env` antes de continuar.
-
-### 3. Copiar los Dockerfiles a sus carpetas
-
-```bash
-cp backend.Dockerfile  backend/Dockerfile
-cp frontend.Dockerfile frontend/Dockerfile
-cp nginx.conf          frontend/nginx.conf
-```
-
-### 4. Levantar los servicios
-
-```bash
-docker compose up --build
+docker compose up
 ```
 
 > La primera vez tarda unos minutos: descarga las imágenes base, instala dependencias y ejecuta el SQL de inicialización.
-
-Cuando veas esto en los logs, todo está listo:
-
-```
-logistica_backend  | Backend de logística corriendo en el puerto 5000
-logistica_frontend | /docker-entrypoint.sh: Configuration complete; ready for start up
-```
 
 ---
 
