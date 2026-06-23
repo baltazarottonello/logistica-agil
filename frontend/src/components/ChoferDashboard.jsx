@@ -26,55 +26,136 @@ export default function ChoferDashboard({ usuario }) {
   }, [usuario]);
 
   const handleCambiarEstado = (idPedido, nuevoEstadoId) => {
-    let nota = "";
+    let tituloPrompt = "";
+    let htmlContenido = "";
+    let prefijoObservacion = "";
 
-    // 1. Alineamos las validaciones con los IDs reales de la DB (estados_pedido)
+    // Configuramos los formularios dinámicos según la acción
     if (nuevoEstadoId === 4) {
-      // 4: Cancelado (Rechazado)
-      nota = prompt("Escribí el motivo del rechazo:");
-      if (nota === null) return;
-      if (nota.trim() === "") {
-        alert("Debes ingresar un motivo para rechazar el pedido.");
-        return;
-      }
+      tituloPrompt = 'Rechazar Pedido';
+      prefijoObservacion = 'Motivo Rechazo: ';
+      htmlContenido = `
+        <p class="text-xs text-slate-500 mb-3 text-left">Escribí el motivo del rechazo del paquete:</p>
+        <textarea id="swal-motivo" class="swal2-textarea w-full m-0 border border-slate-300 rounded-xl text-sm" style="margin:0; width:100%;" placeholder="Ej: Dirección incorrecta, el cliente lo rechazó..."></textarea>
+      `;
     } else if (nuevoEstadoId === 1) {
-      // 1: Pendiente (Ausente, vuelve al pool)
-      nota = prompt("Dejá una nota sobre la ausencia (ej: nadie atendió):");
-      if (nota === null) return;
-      if (nota.trim() === "") nota = "Cliente ausente";
+      tituloPrompt = 'Cliente Ausente';
+      prefijoObservacion = 'Ausencia: ';
+      htmlContenido = `
+        <p class="text-xs text-slate-500 mb-3 text-left">Dejá una nota sobre la ausencia para el sistema:</p>
+        <textarea id="swal-motivo" class="swal2-textarea w-full m-0 border border-slate-300 rounded-xl text-sm" style="margin:0; width:100%;" placeholder="Ej: Nadie atendió el timbre, portería cerrada..."></textarea>
+      `;
     } else if (nuevoEstadoId === 3) {
-      // 3: Entregado
-      nota = prompt("Ingresá Nombre y Apellido de quien recibe:");
-      if (nota === null) return;
-      if (nota.trim() === "") {
-        alert(
-          "Debes ingresar el nombre de quien recibe para completar la entrega."
-        );
-        return;
-      }
+      tituloPrompt = 'Confirmar Entrega';
+      prefijoObservacion = 'Entregado en conformidad a ';
+      htmlContenido = `
+        <p class="text-xs text-slate-500 mb-3 text-left">Ingresá los datos de recepción y solicita la firma digital simulada:</p>
+        <div class="space-y-3 text-left">
+          <input id="swal-receptor" class="swal2-input w-full m-0 border border-slate-300 rounded-xl text-sm" style="margin:0 0 12px 0; width:100%;" placeholder="Nombre, Apellido y DNI (Ej: Juan Pérez - 35.123.456)">
+          
+          <label class="block text-xs font-bold text-slate-700 mb-1">Firma Digital del Receptor (Simulada):</label>
+          <div class="border border-dashed border-slate-300 bg-slate-50 p-4 rounded-xl text-center relative select-none">
+            <span style="font-family: 'Courier New', Courier, monospace; font-size: 18px;" class="italic font-bold text-slate-400 tracking-widest block py-2" id="preview-firma">
+              [ Presione el botón para firmar ]
+            </span>
+            <input type="hidden" id="swal-firma-check" value="false">
+            <button type="button" id="btn-autofirma" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg cursor-pointer transition-colors">
+              ✍️ Estampar Firma Digital
+            </button>
+          </div>
+        </div>
+      `;
     }
 
-    // Petición al backend
-    fetch(`${API_URL}/api/pedidos/${idPedido}/estado`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id_estado: nuevoEstadoId,
-        recibido_por: nuevoEstadoId === 3 ? nota : "N/A",
-        observaciones:
-          nuevoEstadoId === 1
-            ? `Ausencia: ${nota}`
-            : nuevoEstadoId === 4
-            ? `Motivo Rechazo: ${nota}`
-            : `Entregado en conformidad a ${nota}.`,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Error al actualizar el estado.");
-        alert("✅ Estado registrado en el sistema.");
-        cargarMiViaje();
-      })
-      .catch((err) => alert(err.message));
+    Swal.fire({
+      title: tituloPrompt,
+      html: htmlContenido,
+      showCancelButton: true,
+      confirmButtonColor: nuevoEstadoId === 3 ? '#10b981' : nuevoEstadoId === 4 ? '#f43f5e' : '#f59e0b',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Confirmar Registro',
+      cancelButtonText: 'Cancelar',
+      didOpen: () => {
+        // Lógica interactiva para la firma ficticia dentro del modal
+        if (nuevoEstadoId === 3) {
+          const btnFirma = document.getElementById('btn-autofirma');
+          const previewFirma = document.getElementById('preview-firma');
+          const inputFirmaCheck = document.getElementById('swal-firma-check');
+          const inputReceptor = document.getElementById('swal-receptor');
+
+          btnFirma.addEventListener('click', () => {
+            const nombre = inputReceptor.value.trim().split('-')[0] || "Cliente";
+            if (!inputReceptor.value.trim()) {
+              Swal.showValidationMessage('¡Escribí primero el Nombre y DNI del receptor para generar su firma!');
+              return;
+            }
+            // Seteamos una firma ficticia estilizada
+            previewFirma.innerHTML = `🖋️ ${nombre.toUpperCase()}`;
+            previewFirma.classList.remove('text-slate-400');
+            previewFirma.classList.add('text-blue-700', 'font-black');
+            inputFirmaCheck.value = "true";
+          });
+        }
+      },
+      preConfirm: () => {
+        if (nuevoEstadoId === 3) {
+          const receptor = document.getElementById('swal-receptor').value;
+          const firmado = document.getElementById('swal-firma-check').value;
+          
+          if (!receptor || receptor.trim() === "") {
+            Swal.showValidationMessage('El campo Nombre y DNI es obligatorio.');
+            return false;
+          }
+          if (firmado !== "true") {
+            Swal.showValidationMessage('Por favor, solicita la estampa de la firma ficticia antes de continuar.');
+            return false;
+          }
+          return { nota: receptor, extra: " - [Firmado Digitalmente]" };
+        } else {
+          const motivo = document.getElementById('swal-motivo').value;
+          if (!motivo || motivo.trim() === "") {
+            Swal.showValidationMessage('¡Este campo es obligatorio para registrar la novedad!');
+            return false;
+          }
+          return { nota: motivo, extra: "" };
+        }
+      }
+    }).then((result) => {
+      if (result.isConfirmed && result.value) {
+        const { nota, extra } = result.value;
+
+        // Petición al backend
+        fetch(`${API_URL}/api/pedidos/${idPedido}/estado`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_estado: nuevoEstadoId,
+            recibido_por: nuevoEstadoId === 3 ? (nota + extra) : "N/A",
+            observaciones: prefijoObservacion + nota
+          }),
+        })
+        .then((res) => {
+          if (!res.ok) throw new Error("Error al actualizar el estado.");
+          
+          Swal.fire({
+            title: '¡Actualizado!',
+            text: 'El estado del pedido se guardó correctamente.',
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+          });
+
+          cargarMiViaje();
+        })
+        .catch((err) => {
+          Swal.fire({
+            title: 'Error',
+            text: err.message,
+            icon: 'error',
+            confirmButtonColor: '#f43f5e'
+          });
+        });
+      }
+    });
   };
 
   if (loading) {
@@ -136,7 +217,6 @@ export default function ChoferDashboard({ usuario }) {
         Hoja de Ruta / Puntos de Entrega ({pedidos.length})
       </h3>
 
-      {/* Lista de Pedidos en formato Tarjeta (Mobile Friendly) */}
       <div className="space-y-3">
         {pedidos.map((p, index) => (
           <div
@@ -189,26 +269,26 @@ export default function ChoferDashboard({ usuario }) {
               </div>
             )}
 
-            {/* BOTONES DE ACCIÓN PARA EL CHOFER - Solo visibles si el pedido está En Ruta (2) */}
-            {p.id_estado === 2 && (
+            {/* BOTONES DE ACCIÓN PARA EL CHOFER */}
+            {p.id_estado !== 3 && p.id_estado !== 4 && (
               <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 4)} // 4 = Cancelado/Rechazado
-                  className="py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[11px] font-bold hover:bg-rose-100"
+                  onClick={() => handleCambiarEstado(p.id_pedido, 4)}
+                  className="py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[11px] font-bold hover:bg-rose-100 cursor-pointer"
                 >
                   ❌ Rechazado
                 </button>
 
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 1)} // 1 = Vuelve a Pendiente por Ausencia
-                  className="py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[11px] font-bold hover:bg-amber-100"
+                  onClick={() => handleCambiarEstado(p.id_pedido, 1)}
+                  className="py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[11px] font-bold hover:bg-amber-100 cursor-pointer"
                 >
                   🤷‍♂️ Ausente
                 </button>
 
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 3)} // 3 = Entregado
-                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-[11px] hover:bg-emerald-700 shadow-sm"
+                  onClick={() => handleCambiarEstado(p.id_pedido, 3)}
+                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-[11px] hover:bg-emerald-700 shadow-sm cursor-pointer"
                 >
                   ✅ Entregado
                 </button>

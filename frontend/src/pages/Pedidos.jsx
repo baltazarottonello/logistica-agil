@@ -46,7 +46,6 @@ export default function Pedidos({ usuario }) {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarPedidos();
   }, []);
 
@@ -63,7 +62,10 @@ export default function Pedidos({ usuario }) {
   };
 
   const abrirModalCrear = async () => {
-    if (!esAdmin) return alert("Acción denegada.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para realizar esta acción.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
     setEditingId(null);
     setCategoriasSeleccionadas([]); // Limpiar casillas
     setFormData({
@@ -80,7 +82,10 @@ export default function Pedidos({ usuario }) {
   };
 
   const abrirModalEditar = async (pedido) => {
-    if (!esAdmin) return alert("Acción denegada.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para editar.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
     setEditingId(pedido.id_pedido);
 
     // Mapeamos los IDs separados por coma del string enviado por MySQL ('1,3') a enteros ([1, 3])
@@ -119,27 +124,23 @@ export default function Pedidos({ usuario }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!esAdmin) return alert("No tienes permisos.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'No tienes permisos suficientes.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
 
-    if (
-      parseInt(formData.id_cliente_remitente) ===
-      parseInt(formData.id_cliente_destinatario)
-    ) {
-      return alert(
-        "El remitente y el destinatario no pueden coincidir corporativamente."
-      );
+    if (parseInt(formData.id_cliente_remitente) === parseInt(formData.id_cliente_destinatario)) {
+      Swal.fire({ title: 'Validación de Clientes', text: 'El remitente y el destinatario no pueden coincidir corporativamente.', icon: 'warning', confirmButtonColor: '#f59e0b' });
+      return;
     }
 
     if (categoriasSeleccionadas.length === 0) {
-      return alert(
-        "Por favor, selecciona al menos una categoría para la mercancía."
-      );
+      Swal.fire({ title: 'Faltan Categorías', text: 'Por favor, selecciona al menos una categoría para la mercancía.', icon: 'warning', confirmButtonColor: '#f59e0b' });
+      return;
     }
 
     const esEdicion = editingId !== null;
-    const url = esEdicion
-      ? `${API_URL}/api/pedidos/${editingId}`
-      : `${API_URL}/api/pedidos`;
+    const url = esEdicion ? `${API_URL}/api/pedidos/${editingId}` : `${API_URL}/api/pedidos`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -157,24 +158,60 @@ export default function Pedidos({ usuario }) {
       .then(() => {
         setIsModalOpen(false);
         setEditingId(null);
+        
+        Swal.fire({
+          title: esEdicion ? '¡Pedido Modificado!' : '¡Pedido Creado!',
+          text: esEdicion ? 'La orden se actualizó de forma correcta.' : 'La nueva orden fue dada de alta con éxito.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6'
+        });
+
         cargarPedidos();
       })
-      .catch((err) => alert(err.message));
+      .catch((err) => {
+        Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+      });
   };
 
   const handleBorrar = (id) => {
-    if (!esAdmin) return alert("Permisos insuficientes.");
-    if (confirm(`¿Eliminar de forma permanente el Pedido #${id}?`)) {
-      fetch(`${API_URL}/api/pedidos/${id}`, {
-        method: "DELETE",
-        headers: { "x-id-rol": usuario?.id_rol },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Error al borrar el pedido.");
-          cargarPedidos();
-        })
-        .catch((err) => alert(err.message));
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'Permisos insuficientes.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
     }
+
+    // Ventana estética de confirmación de borrado permanente
+    Swal.fire({
+      title: '¿Estás seguro?',
+      text: `Vas a eliminar de forma permanente el Pedido #${id}. Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f43f5e',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, borrar permanentemente',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`${API_URL}/api/pedidos/${id}`, {
+          method: "DELETE",
+          headers: { "x-id-rol": usuario?.id_rol },
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("Error al borrar el pedido.");
+            
+            Swal.fire({
+              title: '¡Eliminado!',
+              text: 'El pedido fue borrado del sistema.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+
+            cargarPedidos();
+          })
+          .catch((err) => {
+            Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+          });
+      }
+    });
   };
 
   const getEstadoStyle = (estado) => {

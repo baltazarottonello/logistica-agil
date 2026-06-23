@@ -91,7 +91,6 @@ export default function VehiculosPage({ usuario }) {
       body: JSON.stringify(formData),
     })
       .then(async (res) => {
-        // Si la respuesta no es exitosa (400, 500, etc)
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(
@@ -102,21 +101,62 @@ export default function VehiculosPage({ usuario }) {
       })
       .then(() => {
         setIsModalOpen(false);
+
+        Swal.fire({
+          title: esEdicion ? '¡Unidad Actualizada!' : '¡Vehículo Registrado!',
+          text: esEdicion ? 'Los cambios técnicos se guardaron correctamente.' : 'La unidad fue dada de alta e incorporada a la flota activa.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6'
+        });
+
         cargarVehiculos();
       })
-      .catch((err) => alert(err.message)); // <-- Ahora sí verás el error real en pantalla
+      .catch((err) => {
+        Swal.fire({
+          title: 'Error de Configuración',
+          text: err.message,
+          icon: 'error',
+          confirmButtonColor: '#3b82f6'
+        });
+      });
   };
 
   const handleBorrar = (id) => {
-    if (confirm("¿Estás seguro de eliminar permanentemente este vehículo?")) {
-      fetch(`${API_URL}/api/vehiculos/${id}`, { method: "DELETE" })
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Error al borrar.");
-          cargarVehiculos();
-        })
-        .catch((err) => alert(err.message));
-    }
+    Swal.fire({
+      title: '¿Retirar vehículo de la flota?',
+      text: 'Esta acción eliminará de forma permanente el registro del transporte de la base de datos logística.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f43f5e',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, remover unidad',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`${API_URL}/api/vehiculos/${id}`, { method: "DELETE" })
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Error al borrar.");
+
+            Swal.fire({
+              title: '¡Unidad Removida!',
+              text: 'El vehículo ya no forma parte del inventario operativo.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+
+            cargarVehiculos();
+          })
+          .catch((err) => {
+            Swal.fire({
+              title: 'Conflicto de Eliminación',
+              text: err.message,
+              icon: 'error',
+              confirmButtonColor: '#3b82f6'
+            });
+          });
+      }
+    });
   };
 
   return (

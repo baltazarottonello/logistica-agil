@@ -103,24 +103,65 @@ export default function ClientesPage({ usuario }) {
       })
       .then(() => {
         setIsModalOpen(false);
+        
+        Swal.fire({
+          title: esEdicion ? '¡Ficha Actualizada!' : '¡Cliente Registrado!',
+          text: esEdicion ? 'La información corporativa fue guardada con éxito.' : 'El nuevo cliente ya está disponible para operar.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6'
+        });
+
         cargarClientes();
       })
-      .catch((err) => alert(err.message));
+      .catch((err) => {
+        Swal.fire({
+          title: 'Error de Procesamiento',
+          text: err.message,
+          icon: 'error',
+          confirmButtonColor: '#3b82f6'
+        });
+      });
   };
 
   const handleBorrar = (id) => {
-    if (confirm("¿Estás seguro de eliminar permanentemente este cliente?")) {
-      fetch(`${API_URL}/api/clientes/${id}`, {
-        method: "DELETE",
-        headers: { "x-id-rol": usuario?.id_rol },
-      })
-        .then(async (res) => {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Error al borrar.");
-          cargarClientes();
+    Swal.fire({
+      title: '¿Eliminar permanentemente?',
+      text: 'Esta acción dará de baja la cuenta del cliente y podría afectar registros históricos si cuenta con órdenes activas.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f43f5e',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, borrar permanentemente',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`${API_URL}/api/clientes/${id}`, {
+          method: "DELETE",
+          headers: { "x-id-rol": usuario?.id_rol },
         })
-        .catch((err) => alert(err.message));
-    }
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || "Error al borrar.");
+            
+            Swal.fire({
+              title: '¡Eliminado!',
+              text: 'La cuenta comercial fue removida del sistema.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+
+            cargarClientes();
+          })
+          .catch((err) => {
+            Swal.fire({
+              title: 'Error de Eliminación',
+              text: err.message,
+              icon: 'error',
+              confirmButtonColor: '#3b82f6'
+            });
+          });
+      }
+    });
   };
 
   return (

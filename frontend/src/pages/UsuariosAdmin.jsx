@@ -37,7 +37,15 @@ export default function UsuariosAdmin({ usuario }) {
   }, []);
 
   const abrirModalCrear = async () => {
-    if (!esAdmin) return alert("No tienes permisos para realizar esta acción.");
+    if (!esAdmin) {
+      Swal.fire({ 
+        title: 'Acción restringida', 
+        text: 'No tienes privilegios suficientes para dar de alta colaboradores.', 
+        icon: 'error', 
+        confirmButtonColor: '#3b82f6' 
+      });
+      return;
+    }
 
     setEditingId(null); // Indicamos que NO estamos editando
     setFormData({
@@ -60,18 +68,25 @@ export default function UsuariosAdmin({ usuario }) {
   };
 
   const abrirModalEditar = async (usuario) => {
-    if (!esAdmin) return alert("No tienes permisos para realizar esta acción.");
+    if (!esAdmin) {
+      Swal.fire({ 
+        title: 'Acción restringida', 
+        text: 'No tienes privilegios para modificar fichas de personal.', 
+        icon: 'error', 
+        confirmButtonColor: '#3b82f6' 
+      });
+      return;
+    }
 
     setEditingId(usuario.id_usuario); // Guardamos el ID que estamos editando
 
-    // Mapeamos los datos de la fila al formulario.
-    // Como id_rol viene del backend, necesitamos asegurarnos de pasar el id correcto.
+    // Mapeamos los datos de la fila al formulario
     setFormData({
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       email: usuario.email,
       password: "---", // Enviamos un valor dummy ya que no editaremos la pass aquí
-      id_rol: usuario.id_rol, // Si tu consulta SQL no trae el id_rol numérico, asignamos uno temporal o el correspondiente
+      id_rol: usuario.id_rol,
       activo: usuario.activo,
     });
 
@@ -93,7 +108,10 @@ export default function UsuariosAdmin({ usuario }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!esAdmin) return alert("Acción denegada.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'Acción denegada por el sistema.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
 
     const esEdicion = editingId !== null;
     const url = esEdicion
@@ -110,7 +128,7 @@ export default function UsuariosAdmin({ usuario }) {
       body: JSON.stringify(formData),
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Error al procesar el usuario.");
+        if (!res.ok) throw new Error("Error al procesar la actualización del usuario.");
         return res.json();
       })
       .then(() => {
@@ -123,25 +141,58 @@ export default function UsuariosAdmin({ usuario }) {
           password: "",
           id_rol: "",
         });
+
+        Swal.fire({
+          title: esEdicion ? '¡Credenciales Actualizadas!' : '¡Colaborador Registrado!',
+          text: esEdicion ? 'Los cambios en los permisos fueron guardados.' : 'El usuario ya puede iniciar sesión en la plataforma.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6'
+        });
+
         cargarDatos(); // Recargar la tabla
       })
-      .catch((err) => alert(err.message));
+      .catch((err) => {
+        Swal.fire({ title: 'Error de Guardado', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+      });
   };
 
-  // Función para simular el borrado (si lo implementas en el backend)
   const handleBorrar = (id) => {
-    if (!esAdmin) return alert("Solo los administradores pueden borrar.");
-    if (confirm("¿Seguro que deseas eliminar este usuario?")) {
-      fetch(`${API_URL}/api/usuarios/${id}`, {
-        method: "DELETE",
-      })
-        .then((res) => {
-          if (!res.ok)
-            throw new Error("No tienes permisos o el usuario no existe.");
-          cargarDatos(); // Recargar tabla
-        })
-        .catch((err) => alert(err.message));
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'Solo los administradores pueden revocar accesos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
     }
+
+    Swal.fire({
+      title: '¿Revocar acceso de usuario?',
+      text: 'Esta acción eliminará de forma permanente el usuario seleccionado. No podrá volver a ingresar al sistema.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, eliminar acceso',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`${API_URL}/api/usuarios/${id}`, {
+          method: "DELETE",
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error("No tienes permisos suficientes o el operador no existe.");
+            
+            Swal.fire({
+              title: '¡Acceso Eliminado!',
+              text: 'Las credenciales fueron revocadas con éxito.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+
+            cargarDatos(); // Recargar tabla
+          })
+          .catch((err) => {
+            Swal.fire({ title: 'Error de Eliminación', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+          });
+      }
+    });
   };
 
   return (
@@ -158,9 +209,8 @@ export default function UsuariosAdmin({ usuario }) {
             </p>
           </div>
 
-          {/* CAMBIO: El botón de agregar solo aparece si eres Admin */}
           <button
-            onClick={abrirModalCrear} // <-- CAMBIO AQUÍ
+            onClick={abrirModalCrear}
             className="mt-4 md:mt-0 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-xl text-sm shadow cursor-pointer"
           >
             + Nuevo Usuario
@@ -169,7 +219,9 @@ export default function UsuariosAdmin({ usuario }) {
 
         {/* Tabla */}
         {loading ? (
-          <p className="text-center text-slate-500">Cargando usuarios...</p>
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
         ) : (
           <div className="bg-white shadow-sm border border-slate-200 rounded-2xl overflow-hidden">
             <table className="min-w-full divide-y divide-slate-200">
@@ -190,7 +242,6 @@ export default function UsuariosAdmin({ usuario }) {
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">
                     Estado
                   </th>
-                  {/* CAMBIO: Columna de acciones solo visible para Admin */}
                   {esAdmin && (
                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase">
                       Acciones
@@ -217,27 +268,26 @@ export default function UsuariosAdmin({ usuario }) {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
                           u.activo
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-100 text-slate-600"
+                            ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                            : "bg-slate-100 text-slate-600 border-slate-200"
                         }`}
                       >
                         {u.activo ? "Activo" : "Inactivo"}
                       </span>
                     </td>
-                    {/* CAMBIO: Botón de borrar condicional */}
                     {esAdmin && (
-                      <td className="px-6 py-4 text-sm space-x-3">
+                      <td className="px-6 py-4 text-sm space-x-3 whitespace-nowrap">
                         <button
-                          onClick={() => abrirModalEditar(u)} // <-- AGREGA ESTO
+                          onClick={() => abrirModalEditar(u)}
                           className="text-blue-600 hover:text-blue-900 font-bold cursor-pointer"
                         >
                           Editar
                         </button>
                         <button
                           onClick={() => handleBorrar(u.id_usuario)}
-                          className="text-red-600 hover:text-red-900 font-bold cursor-pointer"
+                          className="text-rose-600 hover:text-rose-900 font-bold cursor-pointer"
                         >
                           Borrar
                         </button>
@@ -256,14 +306,14 @@ export default function UsuariosAdmin({ usuario }) {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900">
                 {editingId
                   ? "Modificar Colaborador"
                   : "Registrar Nuevo Colaborador"}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 font-bold text-xl cursor-pointer"
+                className="text-slate-400 font-bold text-xl cursor-pointer hover:text-slate-600"
               >
                 &times;
               </button>
@@ -345,7 +395,7 @@ export default function UsuariosAdmin({ usuario }) {
                 </select>
               </div>
               {editingId && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="checkbox"
                     name="activo"
@@ -354,17 +404,17 @@ export default function UsuariosAdmin({ usuario }) {
                     onChange={(e) =>
                       setFormData({ ...formData, activo: e.target.checked })
                     }
-                    className="w-4 h-4 accent-blue-600"
+                    className="w-4 h-4 rounded text-blue-600 border-slate-300 accent-blue-600"
                   />
                   <label
                     htmlFor="activo"
-                    className="text-xs font-bold text-slate-700"
+                    className="text-sm font-semibold text-slate-700 cursor-pointer"
                   >
                     Usuario Activo
                   </label>
                 </div>
               )}
-              <div className="flex space-x-3 pt-2 border-t border-slate-100">
+              <div className="flex space-x-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
