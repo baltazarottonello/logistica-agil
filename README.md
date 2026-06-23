@@ -66,14 +66,12 @@ OPERADOR email : laura.ops@logistica.com / pw: 1234
       ↓
 4. Crear una Hoja de Ruta: seleccionar chofer, vehículo, pedido y estado inicial.
       ↓
-5. Modificar estado del pedido a "En Ruta".
+5. Iniciar sesión como Chofer
       ↓
-6. Iniciar sesión como Chofer
-      ↓
-7. Ver la Hoja de Ruta activa y actualizar el estado de cada pedido
+6. Ver la Hoja de Ruta activa y actualizar el estado de cada pedido
    (Entregado / Ausente / Rechazado)
       ↓
-8. Volver al Administrador → ver el detalle de entrega clickeando la hoja de ruta
+7. Volver al Administrador → ver el detalle de entrega clickeando la hoja de ruta
 ```
 
 ## Comandos útiles
@@ -119,7 +117,7 @@ logistica-agil/
 │   │   └── pages/
 │   └── frontend.Dockerfile
 │
-├── GRUPO 4 (DD, DER, Diagrama de actividad, script sql, Relevamiento+OLA)
+├── GRUPO 4 (DD, DER, Diagrama de actividad, Diagrama de secuencia, script sql, Relevamiento+OLA)
 ├── docker-compose.yml
 ├── .env
 └── README.md
