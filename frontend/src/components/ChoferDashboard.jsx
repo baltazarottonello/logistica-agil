@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function ChoferDashboard({ usuario }) {
   const [viaje, setViaje] = useState(null);
@@ -7,9 +8,7 @@ export default function ChoferDashboard({ usuario }) {
 
   const cargarMiViaje = () => {
     setLoading(true);
-    fetch(
-      `http://localhost:5000/api/hojas-ruta/mi-viaje/${usuario?.id_usuario}`
-    )
+    fetch(`${API_URL}/api/hojas-ruta/mi-viaje/${usuario?.id_usuario}`)
       .then((res) => res.json())
       .then((data) => {
         setViaje(data.hoja);
@@ -29,30 +28,34 @@ export default function ChoferDashboard({ usuario }) {
   const handleCambiarEstado = (idPedido, nuevoEstadoId) => {
     let nota = "";
 
+    // 1. Alineamos las validaciones con los IDs reales de la DB (estados_pedido)
     if (nuevoEstadoId === 4) {
+      // 4: Cancelado (Rechazado)
       nota = prompt("Escribí el motivo del rechazo:");
-      if (nota === null) return; // 🚨 Frenar si presionó "Cancelar"
+      if (nota === null) return;
       if (nota.trim() === "") {
         alert("Debes ingresar un motivo para rechazar el pedido.");
-        return; // 🚨 Frenar si aceptó pero lo dejó vacío
+        return;
       }
     } else if (nuevoEstadoId === 1) {
+      // 1: Pendiente (Ausente, vuelve al pool)
       nota = prompt("Dejá una nota sobre la ausencia (ej: nadie atendió):");
-      if (nota === null) return; // 🚨 Frenar si presionó "Cancelar"
-      if (nota.trim() === "") nota = "Cliente ausente"; // Valor por defecto si aceptó vacío
+      if (nota === null) return;
+      if (nota.trim() === "") nota = "Cliente ausente";
     } else if (nuevoEstadoId === 3) {
+      // 3: Entregado
       nota = prompt("Ingresá Nombre y Apellido de quien recibe:");
-      if (nota === null) return; // 🚨 Frenar si presionó "Cancelar"
+      if (nota === null) return;
       if (nota.trim() === "") {
         alert(
           "Debes ingresar el nombre de quien recibe para completar la entrega."
         );
-        return; // 🚨 Frenar si aceptó pero lo dejó vacío
+        return;
       }
     }
 
-    // Ahora sí, la petición solo se hace si pasó los filtros de arriba
-    fetch(`http://localhost:5000/api/pedidos/${idPedido}/estado`, {
+    // Petición al backend
+    fetch(`${API_URL}/api/pedidos/${idPedido}/estado`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -62,14 +65,14 @@ export default function ChoferDashboard({ usuario }) {
           nuevoEstadoId === 1
             ? `Ausencia: ${nota}`
             : nuevoEstadoId === 4
-            ? `Motivo: ${nota}`
+            ? `Motivo Rechazo: ${nota}`
             : `Entregado en conformidad a ${nota}.`,
       }),
     })
       .then((res) => {
         if (!res.ok) throw new Error("Error al actualizar el estado.");
         alert("✅ Estado registrado en el sistema.");
-        cargarMiViaje(); // Recarga la lista
+        cargarMiViaje();
       })
       .catch((err) => alert(err.message));
   };
@@ -186,25 +189,25 @@ export default function ChoferDashboard({ usuario }) {
               </div>
             )}
 
-            {/* BOTONES DE ACCIÓN PARA EL CHOFER */}
-            {p.id_estado === 1 && (
+            {/* BOTONES DE ACCIÓN PARA EL CHOFER - Solo visibles si el pedido está En Ruta (2) */}
+            {p.id_estado === 2 && (
               <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 3)} // Rechazado
+                  onClick={() => handleCambiarEstado(p.id_pedido, 4)} // 4 = Cancelado/Rechazado
                   className="py-2 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl text-[11px] font-bold hover:bg-rose-100"
                 >
                   ❌ Rechazado
                 </button>
 
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 4)} // Ausente
+                  onClick={() => handleCambiarEstado(p.id_pedido, 1)} // 1 = Vuelve a Pendiente por Ausencia
                   className="py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-[11px] font-bold hover:bg-amber-100"
                 >
                   🤷‍♂️ Ausente
                 </button>
 
                 <button
-                  onClick={() => handleCambiarEstado(p.id_pedido, 2)} // Entregado
+                  onClick={() => handleCambiarEstado(p.id_pedido, 3)} // 3 = Entregado
                   className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-[11px] hover:bg-emerald-700 shadow-sm"
                 >
                   ✅ Entregado

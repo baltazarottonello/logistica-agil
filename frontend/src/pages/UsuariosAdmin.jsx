@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function UsuariosAdmin({ usuario }) {
   const [usuarios, setUsuarios] = useState([]);
@@ -21,7 +22,7 @@ export default function UsuariosAdmin({ usuario }) {
   const cargarDatos = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/usuarios");
+      const res = await fetch(`${API_URL}/api/usuarios`);
       const data = await res.json();
       setUsuarios(data);
       setLoading(false);
@@ -50,7 +51,7 @@ export default function UsuariosAdmin({ usuario }) {
 
     // Cargamos los roles de la DB para el select
     try {
-      const res = await fetch("http://localhost:5000/api/usuarios/roles");
+      const res = await fetch(`${API_URL}/api/usuarios/roles`);
       const data = await res.json();
       setRoles(data);
     } catch (err) {
@@ -77,7 +78,7 @@ export default function UsuariosAdmin({ usuario }) {
 
     // Cargamos los roles para el select
     try {
-      const res = await fetch("http://localhost:5000/api/usuarios/roles");
+      const res = await fetch(`${API_URL}/api/usuarios/roles`);
       const data = await res.json();
       setRoles(data);
     } catch (err) {
@@ -95,8 +96,8 @@ export default function UsuariosAdmin({ usuario }) {
 
     const esEdicion = editingId !== null;
     const url = esEdicion
-      ? `http://localhost:5000/api/usuarios/${editingId}` // URL con ID para el PUT
-      : "http://localhost:5000/api/usuarios";
+      ? `${API_URL}/api/usuarios/${editingId}` // URL con ID para el PUT
+      : `${API_URL}/api/usuarios`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -130,7 +131,7 @@ export default function UsuariosAdmin({ usuario }) {
   const handleBorrar = (id) => {
     if (!esAdmin) return alert("Solo los administradores pueden borrar.");
     if (confirm("¿Seguro que deseas eliminar este usuario?")) {
-      fetch(`http://localhost:5000/api/usuarios/${id}`, {
+      fetch(`${API_URL}/api/usuarios/${id}`, {
         method: "DELETE",
       })
         .then((res) => {

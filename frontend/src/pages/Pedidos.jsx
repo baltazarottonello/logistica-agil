@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function Pedidos({ usuario }) {
   const [pedidos, setPedidos] = useState([]);
@@ -29,7 +30,7 @@ export default function Pedidos({ usuario }) {
 
   const cargarPedidos = () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/pedidos")
+    fetch(`${API_URL}/api/pedidos`)
       .then((res) => {
         if (!res.ok) throw new Error("No se pudo conectar con el servidor.");
         return res.json();
@@ -51,7 +52,7 @@ export default function Pedidos({ usuario }) {
 
   const cargarDependencias = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/pedidos/dependencias");
+      const res = await fetch(`${API_URL}/api/pedidos/dependencias`);
       const data = await res.json();
       setClientes(data.clientes);
       setEstados(data.estados);
@@ -137,8 +138,8 @@ export default function Pedidos({ usuario }) {
 
     const esEdicion = editingId !== null;
     const url = esEdicion
-      ? `http://localhost:5000/api/pedidos/${editingId}`
-      : "http://localhost:5000/api/pedidos";
+      ? `${API_URL}/api/pedidos/${editingId}`
+      : `${API_URL}/api/pedidos`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -164,7 +165,7 @@ export default function Pedidos({ usuario }) {
   const handleBorrar = (id) => {
     if (!esAdmin) return alert("Permisos insuficientes.");
     if (confirm(`¿Eliminar de forma permanente el Pedido #${id}?`)) {
-      fetch(`http://localhost:5000/api/pedidos/${id}`, {
+      fetch(`${API_URL}/api/pedidos/${id}`, {
         method: "DELETE",
         headers: { "x-id-rol": usuario?.id_rol },
       })

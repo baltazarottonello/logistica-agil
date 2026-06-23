@@ -1,5 +1,6 @@
 // pages/VehiculosPage.jsx
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function VehiculosPage({ usuario }) {
   const [vehiculos, setVehiculos] = useState([]);
@@ -21,7 +22,7 @@ export default function VehiculosPage({ usuario }) {
 
   const cargarVehiculos = () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/vehiculos")
+    fetch(`${API_URL}/api/vehiculos`)
       .then((res) => {
         if (!res.ok) throw new Error("Error al cargar la flota de vehículos.");
         return res.json();
@@ -80,8 +81,8 @@ export default function VehiculosPage({ usuario }) {
     e.preventDefault();
     const esEdicion = editingId !== null;
     const url = esEdicion
-      ? `http://localhost:5000/api/vehiculos/${editingId}`
-      : "http://localhost:5000/api/vehiculos";
+      ? `${API_URL}/api/vehiculos/${editingId}`
+      : `${API_URL}/api/vehiculos`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -108,7 +109,7 @@ export default function VehiculosPage({ usuario }) {
 
   const handleBorrar = (id) => {
     if (confirm("¿Estás seguro de eliminar permanentemente este vehículo?")) {
-      fetch(`http://localhost:5000/api/vehiculos/${id}`, { method: "DELETE" })
+      fetch(`${API_URL}/api/vehiculos/${id}`, { method: "DELETE" })
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Error al borrar.");

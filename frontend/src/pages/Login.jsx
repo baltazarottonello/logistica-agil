@@ -1,5 +1,6 @@
 // pages/Login.jsx
 import { useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
@@ -12,7 +13,7 @@ export default function Login({ onLoginSuccess }) {
 
     try {
       // Petición real al backend sin JWT y con texto plano
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -37,7 +38,7 @@ export default function Login({ onLoginSuccess }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-200">
         <div className="text-center mb-6">
           <h2 className="text-3xl font-extrabold text-slate-900">
-            Logística <span className="text-blue-600">Ázil</span>
+            Logística <span className="text-blue-600">Ágil</span>
           </h2>
           <p className="text-sm text-slate-500 mt-2">
             Inicio de Sesión en Base de Datos

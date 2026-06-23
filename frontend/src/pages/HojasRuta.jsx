@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function HojasRuta({ usuario }) {
   const [hojasRuta, setHojasRuta] = useState([]);
@@ -14,7 +15,7 @@ export default function HojasRuta({ usuario }) {
   const [choferes, setChoferes] = useState([]);
   const [vehiculos, setVehiculos] = useState([]);
   const [pedidosDisponibles, setPedidosDisponibles] = useState([]);
-
+  const [error, setError] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [pedidosSeleccionados, setPedidosSeleccionados] = useState([]);
 
@@ -39,7 +40,7 @@ export default function HojasRuta({ usuario }) {
 
   const cargarHojasRuta = () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/hojas-ruta")
+    fetch(`${API_URL}/api/hojas-ruta`)
       .then((res) => res.json())
       .then((data) => {
         setHojasRuta(Array.isArray(data) ? data : []);
@@ -68,7 +69,7 @@ export default function HojasRuta({ usuario }) {
     setLoadingDetalle(true);
     try {
       const res = await fetch(
-        `http://localhost:5000/api/hojas-ruta/${hoja.id_hoja_ruta}/pedidos-detalle`
+        `${API_URL}/api/hojas-ruta/${hoja.id_hoja_ruta}/pedidos-detalle`
       );
       const data = await res.json();
       setPedidosDetalle(data);
@@ -81,16 +82,19 @@ export default function HojasRuta({ usuario }) {
 
   const cargarDependenciasFormulario = async (idHoja = null) => {
     try {
-      const resChoferes = await fetch(
-        "http://localhost:5000/api/hojas-ruta/choferes"
-      );
+      // 🔄 Choferes: Le pasamos la hoja para que incluya al chofer actual de este viaje
+      const urlChoferes = idHoja
+        ? `${API_URL}/api/hojas-ruta/choferes?id_hoja_ruta=${idHoja}`
+        : `${API_URL}/api/hojas-ruta/choferes`;
+      const resChoferes = await fetch(urlChoferes);
       setChoferes(await resChoferes.json());
 
-      const resPedidos = await fetch(
-        "http://localhost:5000/api/pedidos/disponibles"
-      );
-      const pedidosPendientes = await resPedidos.json();
-      setPedidosDisponibles(pedidosPendientes);
+      // 🔄 Pedidos: Le pasamos la hoja para que traiga los libres + los de esta hoja
+      const urlPedidos = idHoja
+        ? `${API_URL}/api/pedidos/disponibles?id_hoja_ruta=${idHoja}`
+        : `${API_URL}/api/pedidos/disponibles`;
+      const resPedidos = await fetch(urlPedidos);
+      setPedidosDisponibles(await resPedidos.json());
     } catch (err) {
       console.error("Error cargando dependencias:", err);
     }
@@ -101,21 +105,19 @@ export default function HojasRuta({ usuario }) {
   useEffect(() => {
     if (!isModalOpen) return;
 
-    fetch(
-      `http://localhost:5000/api/hojas-ruta/vehiculos?requiereFrio=${requiereFrio}`
-    )
+    // 🔄 Vehículos: Pasamos requiereFrio y también el id de la hoja actual
+    const urlVehiculos = `${API_URL}/api/hojas-ruta/vehiculos?requiereFrio=${requiereFrio}${
+      editingId ? `&id_hoja_ruta=${editingId}` : ""
+    }`;
+
+    fetch(urlVehiculos)
       .then((res) => res.json())
       .then((data) => {
         setVehiculos(data);
-        if (
-          formData.id_vehiculo &&
-          !data.some((v) => v.id_vehiculo === parseInt(formData.id_vehiculo))
-        ) {
-          setFormData((prev) => ({ ...prev, id_vehiculo: "" }));
-        }
+        // 💡 Quitamos el setFormData(..., id_vehiculo: "") que te borraba la selección en caliente
       })
       .catch((err) => console.error("Error cargando vehículos:", err));
-  }, [requiereFrio, isModalOpen]);
+  }, [requiereFrio, isModalOpen, editingId]); // 👈 Agregamos editingId acá
 
   const handlePedidoCheckboxChange = (idPedido) => {
     setPedidosSeleccionados((prev) => {
@@ -155,10 +157,16 @@ export default function HojasRuta({ usuario }) {
   };
 
   const abrirModalEditar = async (hoja, e) => {
-    e.stopPropagation(); // Evita que se seleccione la hoja para auditoría al hacer clic en editar
+    e.stopPropagation();
     if (!esAdmin) return alert("No tienes permisos.");
+
+    // 1. Seteamos el ID que estamos editando primero
     setEditingId(hoja.id_hoja_ruta);
 
+    // 2. Traemos las dependencias del backend ESPERANDO que terminen
+    await cargarDependenciasFormulario(hoja.id_hoja_ruta);
+
+    // Formateo de fecha...
     let fechaFormateada = "";
     if (hoja.fecha_salida) {
       const d = new Date(hoja.fecha_salida);
@@ -168,6 +176,7 @@ export default function HojasRuta({ usuario }) {
         .slice(0, 16);
     }
 
+    // 3. RECIÉN AHORA poblamos el formulario y los pedidos seleccionados
     setFormData({
       id_chofer: hoja.id_chofer || "",
       id_vehiculo: hoja.id_vehiculo || "",
@@ -176,12 +185,12 @@ export default function HojasRuta({ usuario }) {
       observaciones: hoja.observaciones || "",
     });
 
-    setIsModalOpen(true);
-    await cargarDependenciasFormulario(hoja.id_hoja_ruta);
-
     if (hoja.id_pedidos_asociados) {
       setPedidosSeleccionados(hoja.id_pedidos_asociados);
     }
+
+    // 4. Abrimos el modal al final de todo para evitar parpadeos en blanco
+    setIsModalOpen(true);
   };
 
   const handleInputChange = (e) => {
@@ -242,8 +251,8 @@ export default function HojasRuta({ usuario }) {
     const fechaFormateada = formData.fecha_salida.replace("T", " ") + ":00";
     const esEdicion = editingId !== null;
     const url = esEdicion
-      ? `http://localhost:5000/api/hojas-ruta/${editingId}`
-      : "http://localhost:5000/api/hojas-ruta";
+      ? `${API_URL}/api/hojas-ruta/${editingId}`
+      : `${API_URL}/api/hojas-ruta`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -284,7 +293,7 @@ export default function HojasRuta({ usuario }) {
     e.stopPropagation(); // Evita conflictos de selección
     if (!esAdmin) return alert("Privilegio requerido.");
     if (confirm(`¿Eliminar Hoja #${id}?`)) {
-      fetch(`http://localhost:5000/api/hojas-ruta/${id}`, {
+      fetch(`${API_URL}/api/hojas-ruta/${id}`, {
         method: "DELETE",
         headers: { "x-id-rol": usuario?.id_rol },
       })

@@ -135,38 +135,69 @@ export const createHojaRuta = async (req, res) => {
 
 export const getChoferesActivos = async (req, res) => {
   try {
+    const { id_hoja_ruta } = req.query;
+
     const query = `
-      SELECT c.id_chofer, CONCAT(u.nombre, ' ', u.apellido) AS nombre 
+      SELECT c.id_chofer, u.nombre, u.apellido 
       FROM choferes c
-      JOIN usuarios u ON c.id_usuario = u.id_usuario
-      WHERE c.activo = 1;
+      INNER JOIN usuarios u ON c.id_usuario = u.id_usuario
+      WHERE c.activo = 1 
+        AND (
+          c.id_chofer NOT IN (
+            SELECT id_chofer FROM hojas_ruta WHERE id_estado_hoja IN (1, 2) AND id_chofer IS NOT NULL
+          )
+          ${
+            id_hoja_ruta
+              ? "OR c.id_chofer = (SELECT id_chofer FROM hojas_ruta WHERE id_hoja_ruta = ?)"
+              : ""
+          }
+        )
+      ORDER BY u.apellido, u.nombre ASC;
     `;
-    const [rows] = await db.query(query);
-    res.json(rows);
+
+    const params = id_hoja_ruta ? [id_hoja_ruta] : [];
+    const [choferes] = await db.query(query, params);
+
+    res.json(choferes);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en getChoferesActivos:", error);
+    res.status(500).json({ message: "Error al obtener choferes activos" });
   }
 };
-
 // Obtener vehículos activos para el formulario
 export const getVehiculosActivos = async (req, res) => {
-  const { requiereFrio } = req.query;
   try {
-    // 🌟 Asegurate de que 'capacidad_kg' esté explícita en esta Query
-    let query = `
-      SELECT id_vehiculo, modelo, patente, apto_refrigeracion, capacidad_kg 
-      FROM vehiculos 
-      WHERE activo = 1
+    const { requiereFrio, id_hoja_ruta } = req.query;
+
+    // Si requiereFrio es 'true', filtramos por apto_refrigeracion = 1
+    const filtroFrio =
+      requiereFrio === "true" ? "AND v.apto_refrigeracion = 1" : "";
+
+    const query = `
+      SELECT v.id_vehiculo, v.patente, v.marca, v.modelo, v.capacidad_kg, v.apto_refrigeracion
+      FROM vehiculos v
+      WHERE v.activo = 1 
+        ${filtroFrio}
+        AND (
+          v.id_vehiculo NOT IN (
+            SELECT id_vehiculo FROM hojas_ruta WHERE id_estado_hoja IN (1, 2) AND id_vehiculo IS NOT NULL
+          )
+          ${
+            id_hoja_ruta
+              ? "OR v.id_vehiculo = (SELECT id_vehiculo FROM hojas_ruta WHERE id_hoja_ruta = ?)"
+              : ""
+          }
+        )
+      ORDER BY v.patente ASC;
     `;
 
-    if (requiereFrio === "true") {
-      query += " AND apto_refrigeracion = 1";
-    }
+    const params = id_hoja_ruta ? [id_hoja_ruta] : [];
+    const [vehiculos] = await db.query(query, params);
 
-    const [rows] = await db.query(query);
-    res.json(rows);
+    res.json(vehiculos);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en getVehiculosActivos:", error);
+    res.status(500).json({ message: "Error al obtener vehículos activos" });
   }
 };
 

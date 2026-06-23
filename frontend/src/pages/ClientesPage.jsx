@@ -1,5 +1,6 @@
 // pages/ClientesPage.jsx
 import { useEffect, useState } from "react";
+import API_URL from "../config/api.js";
 
 export default function ClientesPage({ usuario }) {
   const [clientes, setClientes] = useState([]);
@@ -21,7 +22,7 @@ export default function ClientesPage({ usuario }) {
 
   const cargarClientes = () => {
     setLoading(true);
-    fetch("http://localhost:5000/api/clientes", {
+    fetch(`${API_URL}/api/clientes`, {
       headers: { "x-id-rol": usuario?.id_rol },
     })
       .then((res) => {
@@ -83,8 +84,8 @@ export default function ClientesPage({ usuario }) {
     e.preventDefault();
     const esEdicion = editingId !== null;
     const url = esEdicion
-      ? `http://localhost:5000/api/clientes/${editingId}`
-      : "http://localhost:5000/api/clientes";
+      ? `${API_URL}/api/clientes/${editingId}`
+      : `${API_URL}/api/clientes`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -109,7 +110,7 @@ export default function ClientesPage({ usuario }) {
 
   const handleBorrar = (id) => {
     if (confirm("¿Estás seguro de eliminar permanentemente este cliente?")) {
-      fetch(`http://localhost:5000/api/clientes/${id}`, {
+      fetch(`${API_URL}/api/clientes/${id}`, {
         method: "DELETE",
         headers: { "x-id-rol": usuario?.id_rol },
       })
