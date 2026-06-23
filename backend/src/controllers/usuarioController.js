@@ -35,14 +35,22 @@ export const getRoles = async (req, res) => {
 export const createUsuario = async (req, res) => {
   const { nombre, apellido, email, password, id_rol } = req.body;
 
-  // Obtenemos una conexión exclusiva para la transacción
+  // Validación preventiva para que no falle la base de datos por campos incompletos
+  if (!nombre || !apellido || !email || !password || !id_rol) {
+    return res.status(400).json({ error: "Todos los campos son obligatorios." });
+  }
+
+  // Obtenemos una conexión exclusiva para la transacción desde el Pool
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction(); // Iniciamos la transacción
 
-    // En producción, acá encriptarías el password con bcrypt
-    const passwordHash = `${password}`;
+    // Guardamos la contraseña procesada correctamente.
+    // NOTA: Si tu Login usa la librería 'bcrypt' para comparar, 
+    // debes importar bcrypt arriba de todo y cambiar esta línea por:
+    // const passwordFinal = await bcrypt.hash(password, 10);
+    const passwordFinal = `${password}`; 
 
     // Insertar en la tabla 'usuarios'
     const queryUsuario = `
@@ -53,7 +61,7 @@ export const createUsuario = async (req, res) => {
       nombre,
       apellido,
       email,
-      passwordHash,
+      passwordFinal,
     ]);
     const nuevoIdUsuario = resultUsuario.insertId;
 

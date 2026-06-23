@@ -114,10 +114,9 @@ export default function HojasRuta({ usuario }) {
       .then((res) => res.json())
       .then((data) => {
         setVehiculos(data);
-        // 💡 Quitamos el setFormData(..., id_vehiculo: "") que te borraba la selección en caliente
       })
       .catch((err) => console.error("Error cargando vehículos:", err));
-  }, [requiereFrio, isModalOpen, editingId]); // 👈 Agregamos editingId acá
+  }, [requiereFrio, isModalOpen, editingId]);
 
   const handlePedidoCheckboxChange = (idPedido) => {
     setPedidosSeleccionados((prev) => {
@@ -142,7 +141,10 @@ export default function HojasRuta({ usuario }) {
   };
 
   const abrirModalCrear = async () => {
-    if (!esAdmin) return alert("No tienes permisos.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para realizar esta acción.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
     setEditingId(null);
     setPedidosSeleccionados([]);
     setFormData({
@@ -158,15 +160,14 @@ export default function HojasRuta({ usuario }) {
 
   const abrirModalEditar = async (hoja, e) => {
     e.stopPropagation();
-    if (!esAdmin) return alert("No tienes permisos.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para editar.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
 
-    // 1. Seteamos el ID que estamos editando primero
     setEditingId(hoja.id_hoja_ruta);
-
-    // 2. Traemos las dependencias del backend ESPERANDO que terminen
     await cargarDependenciasFormulario(hoja.id_hoja_ruta);
 
-    // Formateo de fecha...
     let fechaFormateada = "";
     if (hoja.fecha_salida) {
       const d = new Date(hoja.fecha_salida);
@@ -176,7 +177,6 @@ export default function HojasRuta({ usuario }) {
         .slice(0, 16);
     }
 
-    // 3. RECIÉN AHORA poblamos el formulario y los pedidos seleccionados
     setFormData({
       id_chofer: hoja.id_chofer || "",
       id_vehiculo: hoja.id_vehiculo || "",
@@ -189,7 +189,6 @@ export default function HojasRuta({ usuario }) {
       setPedidosSeleccionados(hoja.id_pedidos_asociados);
     }
 
-    // 4. Abrimos el modal al final de todo para evitar parpadeos en blanco
     setIsModalOpen(true);
   };
 
@@ -199,16 +198,18 @@ export default function HojasRuta({ usuario }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!esAdmin) return alert("Acción denegada.");
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'Acción denegada por falta de permisos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
+    }
 
     const vehiculoSeleccionado = vehiculos.find(
       (v) => String(v.id_vehiculo) === String(formData.id_vehiculo)
     );
 
     if (!vehiculoSeleccionado) {
-      return alert(
-        "❌ Error: No se ha seleccionado un vehículo válido o no se pudieron cargar sus datos."
-      );
+      Swal.fire({ title: 'Vehículo inválido', text: 'No se ha seleccionado un vehículo válido o no se pudieron cargar sus datos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
     }
 
     const necesitaVehiculoConFrio = pedidosSeleccionados.some((item) => {
@@ -218,13 +219,9 @@ export default function HojasRuta({ usuario }) {
       return pedido && pedido.requiere_frio === 1;
     });
 
-    if (
-      necesitaVehiculoConFrio &&
-      vehiculoSeleccionado.apto_refrigeracion !== 1
-    ) {
-      return alert(
-        "❌ Error: Estás intentando asignar pedidos que requieren refrigeración a un vehículo común."
-      );
+    if (necesitaVehiculoConFrio && vehiculoSeleccionado.apto_refrigeracion !== 1) {
+      Swal.fire({ title: 'Incompatibilidad de frío', text: 'Estás intentando asignar pedidos que requieren refrigeración a un vehículo común.', icon: 'warning', confirmButtonColor: '#f59e0b' });
+      return;
     }
 
     const pesoTotalCarga = pedidosSeleccionados.reduce((acumulador, item) => {
@@ -238,21 +235,27 @@ export default function HojasRuta({ usuario }) {
     const capacidadMaximaVehiculo = Number(vehiculoSeleccionado.capacidad_kg);
 
     if (pesoTotalCarga > capacidadMaximaVehiculo) {
-      return alert(
-        `❌ Error: Sobrecarga en el vehículo.\n\n` +
-          `• Peso total de los pedidos: ${pesoTotalCarga.toFixed(2)} kg.\n` +
-          `• Capacidad máxima del vehículo (${
-            vehiculoSeleccionado.modelo
-          }): ${capacidadMaximaVehiculo.toFixed(2)} kg.\n\n` +
-          `Por favor, desmarcá algunos pedidos o seleccioná un vehículo con mayor capacidad.`
-      );
+      Swal.fire({
+        title: 'Sobrecarga en el Vehículo',
+        html: `
+          <div className="text-left text-sm space-y-2">
+            <p>No es posible consolidar la ruta debido al peso de las mercancías:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Peso total de carga:</strong> ${pesoTotalCarga.toFixed(2)} kg.</li>
+              <li><strong>Capacidad del vehículo (${vehiculoSeleccionado.modelo}):</strong> ${capacidadMaximaVehiculo.toFixed(2)} kg.</li>
+            </ul>
+            <p className="mt-2 text-xs text-slate-500">Por favor, desmarca algunos pedidos o selecciona una unidad con mayor capacidad.</p>
+          </div>
+        `,
+        icon: 'error',
+        confirmButtonColor: '#ef4444'
+      });
+      return;
     }
 
     const fechaFormateada = formData.fecha_salida.replace("T", " ") + ":00";
     const esEdicion = editingId !== null;
-    const url = esEdicion
-      ? `${API_URL}/api/hojas-ruta/${editingId}`
-      : `${API_URL}/api/hojas-ruta`;
+    const url = esEdicion ? `${API_URL}/api/hojas-ruta/${editingId}` : `${API_URL}/api/hojas-ruta`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -270,42 +273,74 @@ export default function HojasRuta({ usuario }) {
       .then(async (res) => {
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          throw new Error(
-            errorData.error || "Error inesperado en el servidor."
-          );
+          throw new Error(errorData.error || "Error inesperado en el servidor.");
         }
         return res.json();
       })
       .then(() => {
         setIsModalOpen(false);
         setEditingId(null);
-        // Si estábamos auditando la hoja que se editó, limpiamos la selección vieja
         if (hojaSeleccionada?.id_hoja_ruta === editingId) {
           setHojaSeleccionada(null);
           setPedidosDetalle([]);
         }
+
+        Swal.fire({
+          title: esEdicion ? '¡Ruta Actualizada!' : '¡Ruta Planificada!',
+          text: esEdicion ? 'Los cambios se guardaron correctamente.' : 'La hoja de ruta ha sido registrada en el sistema.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6'
+        });
+
         cargarHojasRuta();
       })
-      .catch((err) => alert(err.message));
+      .catch((err) => {
+        Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+      });
   };
 
   const handleBorrar = (id, e) => {
     e.stopPropagation(); // Evita conflictos de selección
-    if (!esAdmin) return alert("Privilegio requerido.");
-    if (confirm(`¿Eliminar Hoja #${id}?`)) {
-      fetch(`${API_URL}/api/hojas-ruta/${id}`, {
-        method: "DELETE",
-        headers: { "x-id-rol": usuario?.id_rol },
-      })
-        .then(() => {
-          if (hojaSeleccionada?.id_hoja_ruta === id) {
-            setHojaSeleccionada(null);
-            setPedidosDetalle([]);
-          }
-          cargarHojasRuta();
-        })
-        .catch((err) => alert(err.message));
+    if (!esAdmin) {
+      Swal.fire({ title: 'Error', text: 'Privilegio requerido.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      return;
     }
+
+    Swal.fire({
+      title: '¿Eliminar Hoja de Ruta?',
+      text: `Vas a borrar de forma permanente la Hoja #${id}. Los pedidos vinculados volverán a quedar disponibles.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#f43f5e',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        fetch(`${API_URL}/api/hojas-ruta/${id}`, {
+          method: "DELETE",
+          headers: { "x-id-rol": usuario?.id_rol },
+        })
+          .then(() => {
+            if (hojaSeleccionada?.id_hoja_ruta === id) {
+              setHojaSeleccionada(null);
+              setPedidosDetalle([]);
+            }
+
+            Swal.fire({
+              title: '¡Eliminada!',
+              text: 'La hoja de ruta fue removida.',
+              icon: 'success',
+              confirmButtonColor: '#3b82f6'
+            });
+
+            cargarHojasRuta();
+          })
+          .catch((err) => {
+            Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+          });
+      }
+    });
   };
 
   const getEstadoBadge = (estado) => {
@@ -319,7 +354,6 @@ export default function HojasRuta({ usuario }) {
   };
 
   const getEstadoPedidoBadge = (idEstado) => {
-    // Mapeo basado en tus controladores backend (id_estado: 3 Entregado, 5 Asignado, etc.)
     if (idEstado === 3)
       return "bg-emerald-50 text-emerald-700 border-emerald-200";
     if (idEstado === 5) return "bg-indigo-50 text-indigo-700 border-indigo-200";
@@ -441,7 +475,7 @@ export default function HojasRuta({ usuario }) {
         </div>
       )}
 
-      {/* --- SECCIÓN NUEVA: PANEL DETALLE DE AUDITORÍA (MAESTRO-DETALLE) --- */}
+      {/* --- PANEL DETALLE DE AUDITORÍA (MAESTRO-DETALLE) --- */}
       {hojaSeleccionada && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 animate-fadeIn">
           <div className="flex justify-between items-center border-b border-slate-200 pb-3">
@@ -514,7 +548,6 @@ export default function HojasRuta({ usuario }) {
                     )}
                   </div>
 
-                  {/* Bloque del Reporte del Chofer (Solo si ya se procesó la entrega en camino) */}
                   {p.fecha_entrega ? (
                     <div className="pt-2 border-t border-slate-100 space-y-2">
                       <div className="flex justify-between items-center text-[11px] text-slate-400">
@@ -586,7 +619,6 @@ export default function HojasRuta({ usuario }) {
               onSubmit={handleSubmit}
               className="p-6 space-y-4 max-h-[75vh] overflow-y-auto"
             >
-              {/* SECCIÓN NUEVA: LISTADO DE PEDIDOS DISPONIBLES */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase">
@@ -605,7 +637,6 @@ export default function HojasRuta({ usuario }) {
                     </p>
                   ) : (
                     pedidosDisponibles.map((p) => {
-                      // Buscamos si este pedido específico ya fue seleccionado
                       const seleccion = pedidosSeleccionados.find(
                         (sel) => sel.id_pedido === p.id_pedido
                       );
@@ -650,7 +681,6 @@ export default function HojasRuta({ usuario }) {
                             </div>
                           </div>
 
-                          {/* COLUMNA DERECHA: INPUT DE ORDEN (Solo visible si está tildado) */}
                           {estaSeleccionado && (
                             <div
                               className="flex items-center space-x-1 pl-2"
@@ -677,7 +707,6 @@ export default function HojasRuta({ usuario }) {
                 </div>
               </div>
 
-              {/* SELECTOR DE VEHÍCULOS (FILTRADO AUTOMÁTICAMENTE POR EL CONTEXTO DE ARRIBA) */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Vehículo Autorizado *
@@ -704,7 +733,6 @@ export default function HojasRuta({ usuario }) {
                 )}
               </div>
 
-              {/* SELECTOR DE CHOFER */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   Chofer Asignado *
