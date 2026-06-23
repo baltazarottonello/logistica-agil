@@ -8,6 +8,7 @@ import {
   deleteHojaRuta,
   getMiHojaRutaActiva,
   getPedidosDetalleAdmin,
+  getHojaRutaPorId,
 } from "../controllers/hojaRutacontroller.js";
 
 const router = express.Router();
@@ -17,6 +18,7 @@ router.get("/choferes", getChoferesActivos);
 router.get("/vehiculos", getVehiculosActivos);
 
 router.get("/", getHojasRuta);
+router.get("/:id", getHojaRutaPorId);
 router.post("/", createHojaRuta);
 router.put("/:id", updateHojaRuta);
 router.delete("/:id", deleteHojaRuta);

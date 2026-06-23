@@ -1,0 +1,120 @@
+@startuml
+title Flujo Normal - Sistema Logístico Ágil
+
+|Administrador|
+|Chofer|
+
+|Administrador|
+start
+
+:Login (POST /api/auth/login);
+note right
+  Valida email + password
+  Devuelve datos del usuario y rol
+end note
+
+if (¿Credenciales válidas?) then (no)
+  :Error 401 - Credenciales inválidas;
+  stop
+else (sí)
+  if (¿Cuenta activa?) then (no)
+    :Error 403 - Cuenta deshabilitada;
+    stop
+  else (sí)
+  endif
+endif
+
+:Registrar Cliente Remitente y/o Destinatario\n(POST /api/clientes);
+note right
+  Si no existen aún
+end note
+
+:Crear Pedido\n(POST /api/pedidos);
+note right
+  Selecciona remitente,
+  destinatario, categorías,
+  dirección de entrega
+  → Estado inicial: Pendiente (1)
+end note
+
+if (¿Pedido requiere frío?) then (sí)
+  :Verificar vehículo con refrigeración\nal momento de asignar;
+else (no)
+endif
+
+:Ver pedidos disponibles\n(GET /api/pedidos/disponibles);
+note right
+  Filtra pedidos con estado = Pendiente (1)
+  y que no esten asignados a otras hojas
+end note
+
+:Seleccionar chofer y vehículo activos\n(GET /api/hojas-ruta/choferes)\n(GET /api/hojas-ruta/vehículos);
+
+:Crear Hoja de Ruta\n(POST /api/hojas-ruta);
+note right
+  Asigna chofer, vehículo,
+  fecha de salida y pedidos
+  con su orden de visita
+end note
+
+if (¿Algún pedido requiere frío?) then (sí)
+  if (¿Vehículo apto para refrigeración?) then (no)
+    :Error - Contradicción de carga;
+    stop
+  else (sí)
+  endif
+else (no)
+endif
+
+if (¿Algún pedido ya estaba asignado?) then (sí)
+  :Error - Conflicto de asignación;
+  stop
+else (no)
+endif
+
+:Pedidos pasan a estado Asignado (5);
+:Hoja de Ruta creada con estado Planificada (1);
+
+|Chofer|
+
+:Ver mi hoja de ruta activa\n(GET /api/hojas-ruta/mi-viaje/:id_usuario);
+note right
+  Busca hojas en estado
+  Planificada (1) o En Curso (2)
+end note
+
+:Iniciar recorrido según orden de visita;
+
+repeat
+  :Atender próximo pedido en el orden;
+
+  if (¿Resultado de la entrega?) then (Entregado)
+    :PATCH /api/pedidos/:id/estado\n→ id_estado = 3;
+    :Pedido → estado Entregado (3)\nEntrega → estado Entregado (2)\nRecibo emitido = TRUE\nFirma digital simulada generada;
+
+  else if (Ausente)
+    :PATCH /api/pedidos/:id/estado\n→ id_estado = 1;
+    :Entrega → sub-estado Ausente (4);
+
+  else (Rechazado)
+    :PATCH /api/pedidos/:id/estado\n→ id_estado = 4;
+    :Entrega → sub-estado Rechazado (3);
+
+  endif
+
+repeat while (¿Más pedidos en la ruta?) is (sí)
+->no;
+
+|Administrador|
+
+:Ver detalle de entregas de la hoja de ruta\n(GET /api/hojas-ruta/:id/pedidos-detalle);
+note right
+  Muestra estado, fecha de entrega,
+  recibido por, firma digital simulada
+end note
+
+:Actualizar o cerrar Hoja de Ruta\n(PUT /api/hojas-ruta/:id);
+
+stop
+
+@enduml

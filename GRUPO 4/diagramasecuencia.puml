@@ -1,0 +1,146 @@
+@startuml
+title Flujo Normal - Sistema Logístico Ágil
+
+actor Administrador
+actor Chofer
+participant Frontend
+participant Backend
+database "Base de Datos"
+
+== Autenticación ==
+
+Administrador -> Frontend: Ingresa email y password
+Frontend -> Backend: POST /api/auth/login
+Backend -> "Base de Datos": Consulta usuario por email
+"Base de Datos" --> Backend: Datos del usuario y rol
+
+alt [Credenciales inválidas]
+    Backend --> Frontend: 401 - Credenciales inválidas
+    Frontend --> Administrador: Muestra error de autenticación
+else [Cuenta deshabilitada]
+    Backend --> Frontend: 403 - Cuenta deshabilitada
+    Frontend --> Administrador: Muestra error de cuenta
+else [Credenciales válidas y cuenta activa]
+    Backend --> Frontend: 200 - datos del usuario
+    Frontend --> Administrador: Acceso al sistema
+end
+
+== Registro de Clientes ==
+
+Administrador -> Frontend: Registrar cliente remitente y/o destinatario
+Frontend -> Backend: POST /api/clientes
+Backend -> "Base de Datos": Inserta nuevo cliente
+"Base de Datos" --> Backend: Cliente creado
+Backend --> Frontend: 201 - Datos del cliente
+Frontend --> Administrador: Confirmación de registro
+
+== Creación de Pedido ==
+
+Administrador -> Frontend: Completa formulario de pedido\n(remitente, destinatario, categorías,\ndirección de entrega)
+Frontend -> Backend: POST /api/pedidos
+Backend -> "Base de Datos": Inserta pedido con estado = Pendiente (1)
+"Base de Datos" --> Backend: Pedido creado con ID
+Backend --> Frontend: 201 - Datos del pedido
+Frontend --> Administrador: Pedido creado (estado: Pendiente)
+
+alt [Pedido requiere frío]
+    Frontend --> Administrador: Marca requisito de refrigeración
+    Frontend --> Administrador: Alerta: verificar vehículo con refrigeración\nal momento de asignar
+end
+
+== Creación de Hoja de Ruta ==
+
+Administrador -> Frontend: Solicita pedidos disponibles
+Frontend -> Backend: GET /api/pedidos/disponibles
+Backend -> "Base de Datos": Filtra pedidos con estado = Pendiente (1) \ny que no esten en ninguna hoja de ruta (excepto la actual)
+"Base de Datos" --> Backend: Lista de pedidos disponibles
+Backend --> Frontend: Lista de pedidos disponibles
+Frontend --> Administrador: Muestra pedidos pendientes
+
+Administrador -> Frontend: Solicita choferes y vehículos activos
+Frontend -> Backend: GET /api/hojas-ruta/choferes
+Backend -> "Base de Datos": Consulta choferes activos
+"Base de Datos" --> Backend: Lista de choferes
+Backend --> Frontend: Choferes disponibles
+
+Frontend -> Backend: GET /api/hojas-ruta/vehiculos
+Backend -> "Base de Datos": Consulta vehículos activos
+"Base de Datos" --> Backend: Lista de vehículos
+Backend --> Frontend: Vehículos disponibles
+Frontend --> Administrador: Muestra choferes y vehículos
+
+Administrador -> Frontend: Crea hoja de ruta\n(chofer, vehículo, fecha de salida,\npedidos con orden de visita)
+Frontend -> Backend: POST /api/hojas-ruta
+Backend -> "Base de Datos": Valida que ningún pedido ya esté asignado
+
+alt [Algún pedido ya estaba asignado]
+    "Base de Datos" --> Backend: Conflicto de asignación
+    Backend --> Frontend: Error - Conflicto de asignación
+    Frontend --> Administrador: Muestra error de conflicto
+else [Pedido requiere frío y vehículo no apto]
+    Backend --> Frontend: Error - Contradicción de carga
+    Frontend --> Administrador: Muestra error de refrigeración
+else [Asignación válida]
+    Backend -> "Base de Datos": Inserta hoja de ruta con estado = Planificada (1)
+    Backend -> "Base de Datos": Actualiza pedidos a estado = Asignado (5)
+    "Base de Datos" --> Backend: Hoja de ruta creada
+    Backend --> Frontend: 201 - Hoja de ruta creada
+    Frontend --> Administrador: Hoja de ruta planificada exitosamente
+end
+
+== Ejecución del Recorrido (Chofer) ==
+
+Chofer -> Frontend: Consulta hoja de ruta activa
+Frontend -> Backend: GET /api/hojas-ruta/mi-viaje/id_usuario
+Backend -> "Base de Datos": Busca hojas en estado Planificada (1)\no En Curso (2)
+"Base de Datos" --> Backend: Hoja de ruta activa
+Backend --> Frontend: Datos de la hoja de ruta
+Frontend --> Chofer: Muestra hoja de ruta con orden de visita
+Chofer -> Frontend: Inicia recorrido
+
+loop [Para cada pedido en la ruta]
+    Chofer -> Frontend: Atiende próximo pedido en el orden
+
+    alt [Entregado]
+        Chofer -> Frontend: Registra entrega exitosa
+        Frontend -> Backend: PATCH /api/pedidos/:id/estado\n(id_estado = 3)
+        Backend -> "Base de Datos": Actualiza pedido a estado = Entregado (3)
+        Backend -> "Base de Datos": Actualiza entrega a estado = Entregado (2)\nrecibo_emitido = TRUE\nfirma digital simulada generada
+        "Base de Datos" --> Backend: Actualización confirmada
+        Backend --> Frontend: Pedido entregado con firma
+        Frontend --> Chofer: Confirmación de entrega
+
+    else [Ausente]
+        Chofer -> Frontend: Registra ausencia del destinatario
+        Frontend -> Backend: PATCH /api/pedidos/:id/estado\n(id_estado = 2)
+        Backend -> "Base de Datos": Actualiza entrega a sub-estado = Ausente (4)
+        "Base de Datos" --> Backend: Actualización confirmada
+        Backend --> Frontend: Estado actualizado
+        Frontend --> Chofer: Confirmación de ausencia
+
+    else [Rechazado]
+        Chofer -> Frontend: Registra rechazo del destinatario
+        Frontend -> Backend: PATCH /api/pedidos/:id/estado\n(id_estado = 4)
+        Backend -> "Base de Datos": Actualiza entrega a sub-estado = Rechazado (3)
+        "Base de Datos" --> Backend: Actualización confirmada
+        Backend --> Frontend: Estado actualizado
+        Frontend --> Chofer: Confirmación de rechazo
+    end
+end
+
+== Cierre de Hoja de Ruta (Administrador) ==
+
+Administrador -> Frontend: Solicita detalle de entregas
+Frontend -> Backend: GET /api/hojas-ruta/:id/pedidos-detalle
+Backend -> "Base de Datos": Consulta detalle con estado, fecha de entrega,\nrecibido por y firma digital
+"Base de Datos" --> Backend: Detalle completo de la hoja de ruta
+Backend --> Frontend: Detalle de entregas
+Frontend --> Administrador: Muestra estado, fechas, firmas y receptores
+
+Administrador -> Frontend: Actualiza o cierra hoja de ruta
+Frontend -> Backend: PUT /api/hojas-ruta/:id
+Backend -> "Base de Datos": Actualiza estado de la hoja de ruta
+"Base de Datos" --> Backend: Confirmación
+Backend --> Frontend: Hoja de ruta cerrada
+Frontend --> Administrador: Confirmación de cierre
+@enduml
