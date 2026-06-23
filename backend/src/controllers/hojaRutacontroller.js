@@ -434,3 +434,47 @@ export const getPedidosDetalleAdmin = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getHojaRutaPorId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const query = `
+    SELECT 
+        h.id_hoja_ruta, 
+        h.id_chofer, 
+        h.id_vehiculo, 
+        h.id_estado_hoja, 
+        DATE_FORMAT(h.fecha_salida, '%Y-%m-%dT%H:%i') AS fecha_salida,
+        DATE_FORMAT(h.fecha_estimada_regreso, '%Y-%m-%dT%H:%i') AS fecha_estimada_regreso,
+        h.observaciones,
+        -- Concatenamos ambos campos: "id_pedido:orden_visita"
+        GROUP_CONCAT(CONCAT(hp.id_pedido, ':', hp.orden_visita) SEPARATOR '|') AS pedidos_con_orden
+    FROM hojas_ruta h
+    LEFT JOIN hoja_ruta_pedido hp ON h.id_hoja_ruta = hp.id_hoja_ruta
+    WHERE h.id_hoja_ruta = ?
+    GROUP BY h.id_hoja_ruta;
+    `;
+
+    const [rows] = await db.query(query, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Hoja de ruta no encontrada" });
+    }
+
+    const hoja = rows[0];
+
+    // Transformamos "2:1|1:2" en [{id_pedido: 2, orden_visita: 1}, {id_pedido: 1, orden_visita: 2}]
+    hoja.pedidos_asignados = hoja.pedidos_con_orden
+      ? hoja.pedidos_con_orden.split("|").map((item) => {
+          const [id, orden] = item.split(":");
+          return { id_pedido: Number(id), orden_visita: Number(orden) };
+        })
+      : [];
+
+    res.json(hoja);
+  } catch (error) {
+    console.error("Error en getHojaRutaPorId:", error);
+    res.status(500).json({ error: "Error interno al obtener la hoja de ruta" });
+  }
+};

@@ -11,6 +11,7 @@ export const getPedidos = async (req, res) => {
         cd.razon_social AS destinatario,
         ep.nombre AS estado,
         GROUP_CONCAT(cp.nombre SEPARATOR ', ') AS categorias,
+        GROUP_CONCAT(pc.id_categoria) AS ids_categorias,
         MAX(cp.requiere_frio) AS requiere_frio -- <-- Si alguna categoría da 1, el pedido requiere frío (1)
       FROM pedidos p
       JOIN clientes cr ON p.id_cliente_remitente = cr.id_cliente

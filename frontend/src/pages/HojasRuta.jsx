@@ -142,7 +142,12 @@ export default function HojasRuta({ usuario }) {
 
   const abrirModalCrear = async () => {
     if (!esAdmin) {
-      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para realizar esta acción.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Acción denegada",
+        text: "No tenés permisos para realizar esta acción.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
     setEditingId(null);
@@ -161,35 +166,41 @@ export default function HojasRuta({ usuario }) {
   const abrirModalEditar = async (hoja, e) => {
     e.stopPropagation();
     if (!esAdmin) {
-      Swal.fire({ title: 'Acción denegada', text: 'No tenés permisos para editar.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Acción denegada",
+        text: "No tenés permisos para editar.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
 
     setEditingId(hoja.id_hoja_ruta);
-    await cargarDependenciasFormulario(hoja.id_hoja_ruta);
+    setIsModalOpen(true); // Abrimos primero para mostrar un estado de carga si quieres
 
-    let fechaFormateada = "";
-    if (hoja.fecha_salida) {
-      const d = new Date(hoja.fecha_salida);
-      const tzOffset = d.getTimezoneOffset() * 60000;
-      fechaFormateada = new Date(d.getTime() - tzOffset)
-        .toISOString()
-        .slice(0, 16);
+    try {
+      // 1. Cargar las listas (Selects)
+      await cargarDependenciasFormulario(hoja.id_hoja_ruta);
+
+      // 2. Cargar el DETALLE REAL de la hoja de ruta (el nuevo endpoint)
+      const res = await fetch(`${API_URL}/api/hojas-ruta/${hoja.id_hoja_ruta}`);
+      const data = await res.json();
+
+      // 3. Setear el formulario con los datos precisos que vienen de la DB
+      setFormData({
+        id_chofer: data.id_chofer,
+        id_vehiculo: data.id_vehiculo,
+        id_estado_hoja: data.id_estado_hoja,
+        fecha_salida: data.fecha_salida, // Ya viene formateado del backend
+        fecha_estimada_regreso: data.fecha_estimada_regreso,
+        observaciones: data.observaciones || "",
+      });
+
+      // 4. Setear los pedidos seleccionados
+      setPedidosSeleccionados(data.pedidos_asignados || []);
+    } catch (err) {
+      console.error("Error al cargar datos de edición:", err);
     }
-
-    setFormData({
-      id_chofer: hoja.id_chofer || "",
-      id_vehiculo: hoja.id_vehiculo || "",
-      id_estado_hoja: hoja.id_estado_hoja || "1",
-      fecha_salida: fechaFormateada,
-      observaciones: hoja.observaciones || "",
-    });
-
-    if (hoja.id_pedidos_asociados) {
-      setPedidosSeleccionados(hoja.id_pedidos_asociados);
-    }
-
-    setIsModalOpen(true);
   };
 
   const handleInputChange = (e) => {
@@ -199,7 +210,12 @@ export default function HojasRuta({ usuario }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!esAdmin) {
-      Swal.fire({ title: 'Error', text: 'Acción denegada por falta de permisos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Error",
+        text: "Acción denegada por falta de permisos.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
 
@@ -208,7 +224,12 @@ export default function HojasRuta({ usuario }) {
     );
 
     if (!vehiculoSeleccionado) {
-      Swal.fire({ title: 'Vehículo inválido', text: 'No se ha seleccionado un vehículo válido o no se pudieron cargar sus datos.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Vehículo inválido",
+        text: "No se ha seleccionado un vehículo válido o no se pudieron cargar sus datos.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
 
@@ -219,8 +240,16 @@ export default function HojasRuta({ usuario }) {
       return pedido && pedido.requiere_frio === 1;
     });
 
-    if (necesitaVehiculoConFrio && vehiculoSeleccionado.apto_refrigeracion !== 1) {
-      Swal.fire({ title: 'Incompatibilidad de frío', text: 'Estás intentando asignar pedidos que requieren refrigeración a un vehículo común.', icon: 'warning', confirmButtonColor: '#f59e0b' });
+    if (
+      necesitaVehiculoConFrio &&
+      vehiculoSeleccionado.apto_refrigeracion !== 1
+    ) {
+      Swal.fire({
+        title: "Incompatibilidad de frío",
+        text: "Estás intentando asignar pedidos que requieren refrigeración a un vehículo común.",
+        icon: "warning",
+        confirmButtonColor: "#f59e0b",
+      });
       return;
     }
 
@@ -236,26 +265,32 @@ export default function HojasRuta({ usuario }) {
 
     if (pesoTotalCarga > capacidadMaximaVehiculo) {
       Swal.fire({
-        title: 'Sobrecarga en el Vehículo',
+        title: "Sobrecarga en el Vehículo",
         html: `
           <div className="text-left text-sm space-y-2">
             <p>No es posible consolidar la ruta debido al peso de las mercancías:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Peso total de carga:</strong> ${pesoTotalCarga.toFixed(2)} kg.</li>
-              <li><strong>Capacidad del vehículo (${vehiculoSeleccionado.modelo}):</strong> ${capacidadMaximaVehiculo.toFixed(2)} kg.</li>
+              <li><strong>Peso total de carga:</strong> ${pesoTotalCarga.toFixed(
+                2
+              )} kg.</li>
+              <li><strong>Capacidad del vehículo (${
+                vehiculoSeleccionado.modelo
+              }):</strong> ${capacidadMaximaVehiculo.toFixed(2)} kg.</li>
             </ul>
             <p className="mt-2 text-xs text-slate-500">Por favor, desmarca algunos pedidos o selecciona una unidad con mayor capacidad.</p>
           </div>
         `,
-        icon: 'error',
-        confirmButtonColor: '#ef4444'
+        icon: "error",
+        confirmButtonColor: "#ef4444",
       });
       return;
     }
 
     const fechaFormateada = formData.fecha_salida.replace("T", " ") + ":00";
     const esEdicion = editingId !== null;
-    const url = esEdicion ? `${API_URL}/api/hojas-ruta/${editingId}` : `${API_URL}/api/hojas-ruta`;
+    const url = esEdicion
+      ? `${API_URL}/api/hojas-ruta/${editingId}`
+      : `${API_URL}/api/hojas-ruta`;
     const metodo = esEdicion ? "PUT" : "POST";
 
     fetch(url, {
@@ -273,7 +308,9 @@ export default function HojasRuta({ usuario }) {
       .then(async (res) => {
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Error inesperado en el servidor.");
+          throw new Error(
+            errorData.error || "Error inesperado en el servidor."
+          );
         }
         return res.json();
       })
@@ -286,35 +323,47 @@ export default function HojasRuta({ usuario }) {
         }
 
         Swal.fire({
-          title: esEdicion ? '¡Ruta Actualizada!' : '¡Ruta Planificada!',
-          text: esEdicion ? 'Los cambios se guardaron correctamente.' : 'La hoja de ruta ha sido registrada en el sistema.',
-          icon: 'success',
-          confirmButtonColor: '#3b82f6'
+          title: esEdicion ? "¡Ruta Actualizada!" : "¡Ruta Planificada!",
+          text: esEdicion
+            ? "Los cambios se guardaron correctamente."
+            : "La hoja de ruta ha sido registrada en el sistema.",
+          icon: "success",
+          confirmButtonColor: "#3b82f6",
         });
 
         cargarHojasRuta();
       })
       .catch((err) => {
-        Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+        Swal.fire({
+          title: "Error",
+          text: err.message,
+          icon: "error",
+          confirmButtonColor: "#3b82f6",
+        });
       });
   };
 
   const handleBorrar = (id, e) => {
     e.stopPropagation(); // Evita conflictos de selección
     if (!esAdmin) {
-      Swal.fire({ title: 'Error', text: 'Privilegio requerido.', icon: 'error', confirmButtonColor: '#3b82f6' });
+      Swal.fire({
+        title: "Error",
+        text: "Privilegio requerido.",
+        icon: "error",
+        confirmButtonColor: "#3b82f6",
+      });
       return;
     }
 
     Swal.fire({
-      title: '¿Eliminar Hoja de Ruta?',
+      title: "¿Eliminar Hoja de Ruta?",
       text: `Vas a borrar de forma permanente la Hoja #${id}. Los pedidos vinculados volverán a quedar disponibles.`,
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#f43f5e',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#f43f5e",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
         fetch(`${API_URL}/api/hojas-ruta/${id}`, {
@@ -328,16 +377,21 @@ export default function HojasRuta({ usuario }) {
             }
 
             Swal.fire({
-              title: '¡Eliminada!',
-              text: 'La hoja de ruta fue removida.',
-              icon: 'success',
-              confirmButtonColor: '#3b82f6'
+              title: "¡Eliminada!",
+              text: "La hoja de ruta fue removida.",
+              icon: "success",
+              confirmButtonColor: "#3b82f6",
             });
 
             cargarHojasRuta();
           })
           .catch((err) => {
-            Swal.fire({ title: 'Error', text: err.message, icon: 'error', confirmButtonColor: '#3b82f6' });
+            Swal.fire({
+              title: "Error",
+              text: err.message,
+              icon: "error",
+              confirmButtonColor: "#3b82f6",
+            });
           });
       }
     });
@@ -783,6 +837,19 @@ export default function HojasRuta({ usuario }) {
                   value={formData.fecha_salida}
                   onChange={handleInputChange}
                   required
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Fecha Estimada de Regreso
+                </label>
+                <input
+                  type="datetime-local"
+                  name="fecha_estimada_regreso"
+                  value={formData.fecha_estimada_regreso || ""}
+                  onChange={handleInputChange}
                   className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
