@@ -1,27 +1,27 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 
-export default function DashboardLayout({ usuario, onLogout }) { 
+export default function DashboardLayout({ usuario, onLogout }) {
   const location = useLocation();
 
   // Condición para saber si el usuario actual es un chofer
   const esChofer = usuario?.id_rol === 3;
 
   // Manejo del cierre de sesión unificado con la estética del sistema
-const handleLogout = () => {
+  const handleLogout = () => {
     Swal.fire({
-      title: '¿Cerrar sesión en la plataforma?',
-      text: 'Deberá ingresar sus credenciales nuevamente para acceder al panel.',
-      icon: 'question',
+      title: "¿Cerrar sesión en la plataforma?",
+      text: "Deberá ingresar sus credenciales nuevamente para acceder al panel.",
+      icon: "question",
       showCancelButton: true,
-      confirmButtonColor: '#3b82f6',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Sí, salir',
-      cancelButtonText: 'Cancelar'
+      confirmButtonColor: "#3b82f6",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Sí, salir",
+      cancelButtonText: "Cancelar",
     }).then((result) => {
       if (result.isConfirmed) {
         // 1. Limpiamos las credenciales del almacenamiento local
         localStorage.removeItem("usuario_sesion");
-        localStorage.removeItem("token"); 
+        localStorage.removeItem("token");
 
         // 2. Le avisamos a App.jsx que cambie el estado a null
         if (typeof onLogout === "function") {
@@ -49,9 +49,9 @@ const handleLogout = () => {
             {/* VISTA EXCLUSIVA PARA EL CHOFER */}
             {esChofer ? (
               <Link
-                to="/rutas"
+                to="/viaje"
                 className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  location.pathname === "/rutas"
+                  location.pathname === "/viaje"
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-slate-400 hover:bg-slate-800"
                 }`}

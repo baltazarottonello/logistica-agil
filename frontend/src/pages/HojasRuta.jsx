@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import API_URL from "../config/api.js";
+import { useNavigate } from "react-router-dom";
 
 export default function HojasRuta({ usuario }) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // La redirección se ejecuta mediante lógica JS dentro de un efecto
+    if (usuario?.id_rol === 3) {
+      navigate("/viaje", { replace: true });
+    }
+  }, [usuario, navigate]);
+
   const [hojasRuta, setHojasRuta] = useState([]);
   const [loading, setLoading] = useState(true);
 

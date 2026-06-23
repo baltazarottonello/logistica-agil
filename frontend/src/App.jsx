@@ -26,6 +26,7 @@ function App() {
     setUsuario(null);
     localStorage.removeItem("usuario_sesion");
     localStorage.removeItem("token");
+    window.location.href = "/";
   };
 
   return (
@@ -45,18 +46,23 @@ function App() {
             }
           >
             {/* Redirección inicial por defecto hacia las hojas de ruta */}
-            <Route path="/" element={<Navigate to="/rutas" replace />} />
-
-            {/* Panel dinámico de Hojas de Ruta según el Rol (Chofer vs Operador/Admin) */}
             <Route
-              path="/rutas"
+              index
               element={
-                Number(usuario?.id_rol) === 3 ? (
-                  <ChoferDashboard usuario={usuario} />
+                usuario?.id_rol === 3 ? (
+                  <Navigate to="/viaje" replace />
                 ) : (
-                  <HojasRuta usuario={usuario} />
+                  <Navigate to="/rutas" replace />
                 )
               }
+            />
+
+            {/* Panel dinámico de Hojas de Ruta según el Rol (Chofer vs Operador/Admin) */}
+            <Route path="/rutas" element={<HojasRuta usuario={usuario} />} />
+
+            <Route
+              path="/viaje"
+              element={<ChoferDashboard usuario={usuario} />}
             />
 
             {/* Administración de Colaboradores y Accesos */}
