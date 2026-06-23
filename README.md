@@ -23,7 +23,6 @@ Stack: **React + Vite** · **Node.js + Express** · **MySQL 8**
 ```bash
 git clone https://github.com/baltazarottonello/logistica-agil.git
 cd logistica-agil
-git checkout development
 ```
 
 ### 2. Levantar los servicios
